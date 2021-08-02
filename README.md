@@ -1,2 +1,2 @@
-# backtesthub
+# Backtest Hub
 Backtest Hub provides a resourceful toolkit to run backtest simulations quick and easy. Instead of having multiple support features, such as fetching-plotting-analytics-optimizing, backtest-hub focuses on it's core mission, which is to provide its users an efficient backtest engine, letting to the user the decision of which sattelites systems fits better. The project targets professional quantitative/systematic traders, but can be used by anyone intested in it!
