@@ -1,31 +1,38 @@
 #! /usr/bin/env python3
 
 import warnings
-from abc import ABCMeta, abstractmethod
+import numpy as np
+import pandas as pd
+from .utils.static import * 
+from warnings import filterwarnings
+from abc import ABCMeta, abstractmethod 
 
 from typing import Callable, Dict, List, \
     Optional, Sequence, Tuple, Type, Union
 
-class Strategy(metaclass=ABCMeta):
+filterwarnings('ignore')
+
+class Base(metaclass = ABCMeta):
+    
     """
-    A trading strategy base class. Extend this class and
-    override methods
-    `backtesting.backtesting.Strategy.init` and
-    `backtesting.backtesting.Strategy.next` to define
-    your own strategy.
+
+    Strategy's Base Class
+
+    Makes both __init__ and __next__ mandatory.
+    
     """
+    
     def __init__(self, broker, data, params):
         self._indicators = []
-        self._broker: _Broker = broker
-        self._data: _Data = data
+        self._broker: Broker = broker
+        self._data: Data = data
         self._params = self._check_params(params)
 
     def __repr__(self):
         return '<Strategy ' + str(self) + '>'
 
     def __str__(self):
-        params = ','.join(f'{i[0]}={i[1]}' for i in zip(self._params.keys(),
-                                                        map(_as_str, self._params.values())))
+        params = ','.join(f'{i[0]}={i[1]}' for i in zip(self._params.keys(), map(_str, self._params.values())))
         if params:
             params = '(' + params + ')'
         return f'{self.__class__.__name__}{params}'
@@ -72,12 +79,12 @@ class Strategy(metaclass=ABCMeta):
                 self.sma = self.I(ta.SMA, self.data.Close, self.n_sma)
         """
         if name is None:
-            params = ','.join(filter(None, map(_as_str, chain(args, kwargs.values()))))
-            func_name = _as_str(func)
+            params = ','.join(filter(None, map(_str, chain(args, kwargs.values()))))
+            func_name = _str(func)
             name = (f'{func_name}({params})' if params else f'{func_name}')
         else:
-            name = name.format(*map(_as_str, args),
-                               **dict(zip(kwargs.keys(), map(_as_str, kwargs.values()))))
+            name = name.format(*map(_str, args),
+                               **dict(zip(kwargs.keys(), map(_str, kwargs.values()))))
 
         try:
             value = func(*args, **kwargs)
@@ -88,7 +95,7 @@ class Strategy(metaclass=ABCMeta):
             value = value.values.T
 
         if value is not None:
-            value = try_(lambda: np.asarray(value, order='C'), None)
+            value = np.asarray(value, order='C')
         is_arraylike = value is not None
 
         # Optionally flip the array if the user returned e.g. `df.values`
@@ -180,7 +187,7 @@ class Strategy(metaclass=ABCMeta):
         return self._broker.equity
 
     @property
-    def data(self) -> _Data:
+    def data(self) -> Data:
         """
         Price data, roughly as passed into
         `backtesting.backtesting.Backtest.__init__`,
