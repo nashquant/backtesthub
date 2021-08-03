@@ -1,48 +1,30 @@
 #! /usr/bin/env python3
 
-from typing import TypeVar
 import numpy as np
 import pandas as pd
 
-T = TypeVar('T')
+from typing import Dict
 
-def _str(value: T) -> str:
-    pass
-
-def _try(lazy_func, default=None, exception=Exception):
-    try:
-        return lazy_func()
-    except exception:
-        return default
+__all__ = ["_Indicator", "_Array", "_Data"]
 
 class _Array(np.ndarray):
+
+    """
+    Numpy Array Extended Class
+
+    Adapted from Backtesting.py
+    https://github.com/kernc/backtesting.py.git
     
     """
-    ndarray extended to supply .name and 
-    other arbitrary properties in ._opts dict.
-    
-    """
-    
+
     def __new__(cls, array, *, name=None, **kwargs):
-        
         obj = np.asarray(array).view(cls)
         obj.name = name or array.name
-        obj._opts = kwargs
-        
         return obj
 
     def __array_finalize__(self, obj):
         if obj is not None:
-            self.name = getattr(obj, 'name', '')
-            self._opts = getattr(obj, '_opts', {})
-
-    # Make sure properties name and 
-    # _opts are carried over when 
-    # (un-)pickling.
-    
-    def __reduce__(self):
-        value = super().__reduce__()
-        return value[:2] + (value[2] + (self.__dict__,),)
+            self.name = getattr(obj, "name", "")
 
     def __setstate__(self, state):
         self.__dict__.update(state[-1])
@@ -60,36 +42,47 @@ class _Array(np.ndarray):
         except IndexError:
             return super().__float__()
 
-    def to_series(self):
-        warnings.warn("`.to_series()` is deprecated. For pd.Series conversion, use accessor `.s`")
-        return self.s
-
     @property
     def s(self) -> pd.Series:
         values = np.atleast_2d(self)
-        index = self._opts['index'][:values.shape[1]]
+        index = self._opts["index"][: values.shape[1]]
         return pd.Series(values[0], index=index, name=self.name)
 
     @property
     def df(self) -> pd.DataFrame:
         values = np.atleast_2d(np.asarray(self))
-        index = self._opts['index'][:values.shape[1]]
+        index = self._opts["index"][: values.shape[1]]
         df = pd.DataFrame(values.T, index=index, columns=[self.name] * len(values))
         return df
 
-class Data:
+
+class _Indicator(_Array):
+    """
+    
+    Indicator Base Class.
+
+    Adapted from Backtesting.py
+    https://github.com/kernc/backtesting.py.git
+
+    """
+
+class _Data:
     
     """
+
     A data array accessor. Provides access to OHLCV "columns"
     as a standard `pd.DataFrame` would, except it's not a DataFrame
     and the returned "series" are _not_ `pd.Series` but `np.ndarray`
     for performance reasons.
+
+    Adapted from Backtesting.py
+    https://github.com/kernc/backtesting.py.git
+
     """
-    
+
     def __init__(self, df: pd.DataFrame):
         self.__df = df
         self.__i = len(df)
-        self.__pip: Optional[float] = None
         self.__cache: Dict[str, _Array] = {}
         self.__arrays: Dict[str, _Array] = {}
         self._update()
@@ -109,62 +102,54 @@ class Data:
 
     def _update(self):
         index = self.__df.index.copy()
-        self.__arrays = {col: _Array(arr, index=index)
-                         for col, arr in self.__df.items()}
+        self.__arrays = {
+            col: _Array(arr, index=index) for col, arr in self.__df.items()
+        }
         # Leave index as Series because pd.Timestamp nicer API to work with
-        self.__arrays['__index'] = index
+        self.__arrays["__index"] = index
 
     def __repr__(self):
         i = min(self.__i, len(self.__df) - 1)
-        index = self.__arrays['__index'][i]
-        items = ', '.join(f'{k}={v}' for k, v in self.__df.iloc[i].items())
-        return f'<Data i={i} ({index}) {items}>'
+        index = self.__arrays["__index"][i]
+        items = ", ".join(f"{k}={v}" for k, v in self.__df.iloc[i].items())
+        return f"<Data i={i} ({index}) {items}>"
 
     def __len__(self):
         return self.__i
 
     @property
     def df(self) -> pd.DataFrame:
-        return (self.__df.iloc[:self.__i]
-                if self.__i < len(self.__df)
-                else self.__df)
-
-    @property
-    def pip(self) -> float:
-        if self.__pip is None:
-            self.__pip = 10**-np.median([len(s.partition('.')[-1])
-                                         for s in self.__arrays['Close'].astype(str)])
-        return self.__pip
+        return self.__df.iloc[: self.__i] if self.__i < len(self.__df) else self.__df
 
     def __get_array(self, key) -> _Array:
         arr = self.__cache.get(key)
         if arr is None:
-            arr = self.__cache[key] = self.__arrays[key][:self.__i]
+            arr = self.__cache[key] = self.__arrays[key][: self.__i]
         return arr
 
     @property
     def Open(self) -> _Array:
-        return self.__get_array('Open')
+        return self.__get_array("Open")
 
     @property
     def High(self) -> _Array:
-        return self.__get_array('High')
+        return self.__get_array("High")
 
     @property
     def Low(self) -> _Array:
-        return self.__get_array('Low')
+        return self.__get_array("Low")
 
     @property
     def Close(self) -> _Array:
-        return self.__get_array('Close')
+        return self.__get_array("Close")
 
     @property
     def Volume(self) -> _Array:
-        return self.__get_array('Volume')
+        return self.__get_array("Volume")
 
     @property
     def index(self) -> pd.DatetimeIndex:
-        return self.__get_array('__index')
+        return self.__get_array("__index")
 
     # Make pickling in Backtest.optimize() work with our catch-all __getattr__
     def __getstate__(self):

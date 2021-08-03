@@ -1,95 +1,105 @@
 #! /usr/bin/env python3
 
-import warnings
 import numpy as np
 import pandas as pd
-from .utils.static import * 
+from .utils.static import *
+from dataclasses import dataclass
 from warnings import filterwarnings
 from abc import ABCMeta, abstractmethod 
+from typing import List, Dict, Callable
 
-from typing import Callable, Dict, List, \
-    Optional, Sequence, Tuple, Type, Union
+from .position import *
+from .broker import *
+from .order import *
 
 filterwarnings('ignore')
 
+__all__ = ['Base']
+@dataclass
 class Base(metaclass = ABCMeta):
     
     """
-
-    Strategy's Base Class
-
-    Makes both __init__ and __next__ mandatory.
     
     """
-    
-    def __init__(self, broker, data, params):
-        self._indicators = []
-        self._broker: Broker = broker
-        self._data: Data = data
-        self._params = self._check_params(params)
+    __dnames: Dict[str, _Data]
+    __indicators: List[_Indicator]
+    __broker: Broker
+    __params: Dict
 
-    def __repr__(self):
-        return '<Strategy ' + str(self) + '>'
-
-    def __str__(self):
-        params = ','.join(f'{i[0]}={i[1]}' for i in zip(self._params.keys(), map(_str, self._params.values())))
-        if params:
-            params = '(' + params + ')'
-        return f'{self.__class__.__name__}{params}'
-
-    def _check_params(self, params):
-        for k, v in params.items():
-            if not hasattr(self, k):
-                raise AttributeError(
-                    f"Strategy '{self.__class__.__name__}' is missing parameter '{k}'."
-                    "Strategy class should define parameters as class variables before they "
-                    "can be optimized or run with.")
-            setattr(self, k, v)
-        return params
-
-    def I(self,  # noqa: E741, E743
-          func: Callable, *args,
-          name=None, plot=True, overlay=None, color=None, scatter=False,
-          **kwargs) -> np.ndarray:
+    @property
+    def equity(self) -> float:
+        
         """
-        Declare indicator. An indicator is just an array of values,
-        but one that is revealed gradually in
-        `backtesting.backtesting.Strategy.next` much like
+        Current account equity 
+        """
+        
+        return self.__broker.equity
+
+    @property
+    def data(self) -> _Data:
+        """
+        
+        * `data` is _not_ a DataFrame, but a custom structure
+          that serves customized numpy arrays for reasons of performance
+          and convenience. Besides OHLCV columns, `.index` and length,
+          it offers `.pip` property, the smallest price unit of change.
+
+        * Within `backtesting.backtesting.Strategy.init`, `data` arrays
+          are available in full length, as passed into
+          `backtesting.backtesting.Backtest.__init__`
+          (for precomputing indicators and such). However, within
+          `backtesting.backtesting.Strategy.next`, `data` arrays are
+          only as long as the current iteration, simulating gradual
+          price point revelation. In each call of
+          `backtesting.backtesting.Strategy.next` (iteratively called by
+          `backtesting.backtesting.Backtest` internally),
+          the last array value (e.g. `data.Close[-1]`)
+          is always the _most recent_ value.
+
+        * If you need data arrays (e.g. `data.Close`) to be indexed
+          **Pandas series**, you can call their `.s` accessor
+          (e.g. `data.Close.s`). If you need the whole of data
+          as a **DataFrame**, use `.df` accessor (i.e. `data.df`).
+        """
+        return self.__dnames['ticker']
+
+    @property
+    def position(self) -> List[Position]:
+        """Instance of `backtesting.backtesting.Position`."""
+        return self.__broker.position
+
+    @property
+    def orders(self) -> List[Order]:
+        """List of orders (see `Order`) waiting for execution."""
+        return Order(self.__broker.orders)
+
+
+    def I(self, f: Callable, *args, **kwargs) -> _Indicator:
+        
+        """
+        Declare indicator. 
+        
+        An indicator is just an array of values,but one that is revealed 
+        gradually in `backtesting.backtesting.Strategy.next` much like
         `backtesting.backtesting.Strategy.data` is.
-        Returns `np.ndarray` of indicator values.
+        
         `func` is a function that returns the indicator array(s) of
         same length as `backtesting.backtesting.Strategy.data`.
-        In the plot legend, the indicator is labeled with
-        function name, unless `name` overrides it.
-        If `plot` is `True`, the indicator is plotted on the resulting
-        `backtesting.backtesting.Backtest.plot`.
-        If `overlay` is `True`, the indicator is plotted overlaying the
-        price candlestick chart (suitable e.g. for moving averages).
-        If `False`, the indicator is plotted standalone below the
-        candlestick chart. By default, a heuristic is used which decides
-        correctly most of the time.
-        `color` can be string hex RGB triplet or X11 color name.
-        By default, the next available color is assigned.
-        If `scatter` is `True`, the plotted indicator marker will be a
-        circle instead of a connected line segment (default).
+        
         Additional `*args` and `**kwargs` are passed to `func` and can
         be used for parameters.
+        
         For example, using simple moving average function from TA-Lib:
             def init():
                 self.sma = self.I(ta.SMA, self.data.Close, self.n_sma)
         """
-        if name is None:
-            params = ','.join(filter(None, map(_str, chain(args, kwargs.values()))))
-            func_name = _str(func)
-            name = (f'{func_name}({params})' if params else f'{func_name}')
-        else:
-            name = name.format(*map(_str, args),
-                               **dict(zip(kwargs.keys(), map(_str, kwargs.values()))))
+
 
         try:
-            value = func(*args, **kwargs)
+            value = f(*args, **kwargs)
+        
         except Exception as e:
-            raise RuntimeError(f'Indicator "{name}" errored with exception: {e}')
+            raise Exception(e)
 
         if isinstance(value, pd.DataFrame):
             value = value.values.T
@@ -102,24 +112,17 @@ class Base(metaclass = ABCMeta):
         if is_arraylike and np.argmax(value.shape) == 0:
             value = value.T
 
-        if not is_arraylike or not 1 <= value.ndim <= 2 or value.shape[-1] != len(self._data.Close):
+        if not is_arraylike or not 1 <= value.ndim <= 2 or value.shape[-1] != len(self.__data.Close):
             raise ValueError(
                 'Indicators must return (optionally a tuple of) numpy.arrays of same '
-                f'length as `data` (data shape: {self._data.Close.shape}; indicator "{name}"'
+                f'length as `data` (data shape: {self.__data.Close.shape};"'
                 f'shape: {getattr(value, "shape" , "")}, returned value: {value})')
 
-        if plot and overlay is None and np.issubdtype(value.dtype, np.number):
-            x = value / self._data.Close
-            # By default, overlay if strong majority of indicator values
-            # is within 30% of Close
-            with np.errstate(invalid='ignore'):
-                overlay = ((x < 1.4) & (x > .6)).mean() > .6
-
-        value = _Indicator(value, name=name, plot=plot, overlay=overlay,
-                           color=color, scatter=scatter,
-                           # _Indicator.s Series accessor uses this:
-                           index=self.data.index)
-        self._indicators.append(value)
+        value = _Indicator(
+            value, 
+            index=self.data.index
+        )
+        
         return value
 
     @abstractmethod
@@ -149,87 +152,27 @@ class Base(metaclass = ABCMeta):
             super().next()
         """
 
-    class __FULL_EQUITY(float):
-        def __repr__(self): return '.9999'
-    _FULL_EQUITY = __FULL_EQUITY(1 - sys.float_info.epsilon)
+    def buy(
+        self,
+        ticker: str,
+        size: float,
+        price: float
+    ):
+        
+        return self.__broker._issue_order(
+            ticker, size, price
+        )
 
-    def buy(self, *,
-            size: float = _FULL_EQUITY,
-            limit: float = None,
-            stop: float = None,
-            sl: float = None,
-            tp: float = None):
-        """
-        Place a new long order. For explanation of parameters, see `Order` and its properties.
-        See also `Strategy.sell()`.
-        """
-        assert 0 < size < 1 or round(size) == size, \
-            "size must be a positive fraction of equity, or a positive whole number of units"
-        return self._broker.new_order(size, limit, stop, sl, tp)
+    def sell(
+        self,
+        ticker: str,
+        size: float,
+        price: float
+    ):
+        
+        return self.__broker._issue_order(
+            ticker, -size, price
+        )
 
-    def sell(self, *,
-             size: float = _FULL_EQUITY,
-             limit: float = None,
-             stop: float = None,
-             sl: float = None,
-             tp: float = None):
-        """
-        Place a new short order. For explanation of parameters, see `Order` and its properties.
-        See also `Strategy.buy()`.
-        """
-        assert 0 < size < 1 or round(size) == size, \
-            "size must be a positive fraction of equity, or a positive whole number of units"
-        return self._broker.new_order(-size, limit, stop, sl, tp)
 
-    @property
-    def equity(self) -> float:
-        """Current account equity (cash plus assets)."""
-        return self._broker.equity
-
-    @property
-    def data(self) -> Data:
-        """
-        Price data, roughly as passed into
-        `backtesting.backtesting.Backtest.__init__`,
-        but with two significant exceptions:
-        * `data` is _not_ a DataFrame, but a custom structure
-          that serves customized numpy arrays for reasons of performance
-          and convenience. Besides OHLCV columns, `.index` and length,
-          it offers `.pip` property, the smallest price unit of change.
-        * Within `backtesting.backtesting.Strategy.init`, `data` arrays
-          are available in full length, as passed into
-          `backtesting.backtesting.Backtest.__init__`
-          (for precomputing indicators and such). However, within
-          `backtesting.backtesting.Strategy.next`, `data` arrays are
-          only as long as the current iteration, simulating gradual
-          price point revelation. In each call of
-          `backtesting.backtesting.Strategy.next` (iteratively called by
-          `backtesting.backtesting.Backtest` internally),
-          the last array value (e.g. `data.Close[-1]`)
-          is always the _most recent_ value.
-        * If you need data arrays (e.g. `data.Close`) to be indexed
-          **Pandas series**, you can call their `.s` accessor
-          (e.g. `data.Close.s`). If you need the whole of data
-          as a **DataFrame**, use `.df` accessor (i.e. `data.df`).
-        """
-        return self._data
-
-    @property
-    def position(self) -> 'Position':
-        """Instance of `backtesting.backtesting.Position`."""
-        return self._broker.position
-
-    @property
-    def orders(self) -> 'Tuple[Order, ...]':
-        """List of orders (see `Order`) waiting for execution."""
-        return _Orders(self._broker.orders)
-
-    @property
-    def trades(self) -> 'Tuple[Trade, ...]':
-        """List of active trades (see `Trade`)."""
-        return tuple(self._broker.trades)
-
-    @property
-    def closed_trades(self) -> 'Tuple[Trade, ...]':
-        """List of settled trades (see `Trade`)."""
-        return tuple(self._broker.closed_trades)
+    
