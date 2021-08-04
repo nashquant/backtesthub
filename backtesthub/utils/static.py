@@ -19,15 +19,13 @@ class Line(np.ndarray):
 
     """
 
-    def __new__(cls,  **kwargs: Dict[str, Any]):
-        
-        array: Sequence = kwargs.pop("array", None)
-        line: Optional[str] = kwargs.pop("line", None)
+    def __new__(cls, array: Sequence, line: str):
         
         obj = np.asarray(array).view(cls)
-        obj.line = line or getattr(array, "line", "")
-        obj.kwargs = kwargs
         
+        obj.line = line or getattr(array, "line")
+        obj.index = getattr(array, "index")
+                
         return obj
 
     def __array_finalize__(self, obj):
@@ -53,6 +51,20 @@ class Line(np.ndarray):
         except KeyError:
             return super().__float__()
 
+    def __repr__(self):
+
+        line = self.__line
+        index = self.__index[-1]
+        value = self.__float__()
+        
+        if hasattr(index , "date"): 
+            index = index.date()
+        
+        if hasattr(index, "isoformat"):
+            index = index.isoformat()
+        
+        return f"<Line ({index}) {line} = {value}>"
+
     @property
     def s(self) -> pd.Series:
         values = np.atleast_2d(self)
@@ -72,13 +84,14 @@ class Data:
 
     """
 
-    A data array accessor. Provides access to OHLCV "columns"
+    * A data array accessor. Provides access to OHLCV "columns"
     as a standard `pd.DataFrame` would, except it's not a DataFrame
     and the returned "series" are _not_ `pd.Series` but `np.ndarray`
-    for performance reasons.
+    for performance purposes.
 
-    Adapted from Backtesting.py
-    https://github.com/kernc/backtesting.py.git
+    * Inspired by both Backtesting.py and Backtrader Systems:
+    - https://github.com/kernc/backtesting.py.git
+    - https://github.com/mementum/backtrader
 
     """
 
@@ -99,23 +112,49 @@ class Data:
         idx = self.__df.index.copy()
         
         self.__lines = {
-            col: Line(array = arr, index=idx, line = col) \
+            col: Line(array = arr, line = col) \
                 for col, arr in self.__df.items()
         }
         
         self.__lines["__index"] = idx
 
+    def __len__(self):
+        return self.__len
+
+    def __repr__(self):
+        
+        idx = min(self.__len, len(self.__df) - 1)
+        
+        dct = {k:v for k, v in self.__df.iloc[idx].items()}
+        lines = ", ".join("{}={:.2f}".format(k,v) for k, v in dct.items())
+
+        index = self.__lines["__index"][idx]
+        
+        if hasattr(index , "date"): 
+            index = index.date()
+        
+        if hasattr(index, "isoformat"):
+            index = index.isoformat()
+        
+        return f"<Data ({index}) {lines}>"
+
     def __getitem__(self, line: str):
 
-        return self.__get_line(line)
+        try:
+            return self.__get_line(line)
+        
+        except:
+            msg = f"Line '{line}' non existant"
+            raise AttributeError(msg)
 
     def __getattr__(self, line: str):
         
         try:
             return self.__get_line(line)
         
-        except KeyError:
-            raise AttributeError(f"Line '{line}' non existant")
+        except:
+            msg = f"Line '{line}' non existant"
+            raise AttributeError(msg)
 
     def __get_line(self, line: str) -> Line:
         
@@ -128,48 +167,15 @@ class Data:
         
         return lobj
 
-    def __len__(self):
-        return self.__len
-
-    def __repr__(self):
-        idx = min(self.__len, len(self.__df) - 1)
-        index = self.__lines["__index"][idx]
-        items = ", ".join(f"{k}={v}" for k, v in self.__df.iloc[idx].items())
-        
-        return f"<Data i={idx} ({index}) {items}>"
-
     ## DataFrame Properties ##
 
     @property
     def __len(self) -> int:
-
         return len(self.__df)
 
     @property
     def df(self) -> pd.DataFrame:
-        return self.__df.iloc[: self.__l] if self.__l < len(self.__df) else self.__df
-
-    ## Line Accessors ##
-
-    @property
-    def Open(self) -> Line:
-        return self.__get_line("Open")
-
-    @property
-    def High(self) -> Line:
-        return self.__get_line("High")
-
-    @property
-    def Low(self) -> Line:
-        return self.__get_line("Low")
-
-    @property
-    def Close(self) -> Line:
-        return self.__get_line("Close")
-
-    @property
-    def Volume(self) -> Line:
-        return self.__get_line("Volume")
+        return self.__df.iloc[: self.__len] if self.__len < len(self.__df) else self.__df
 
     @property
     def index(self) -> pd.DatetimeIndex:

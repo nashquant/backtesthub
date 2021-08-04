@@ -22,6 +22,5 @@ class Position:
 
         if ticker not in set(self.__size.keys()):
             self.__size.update({ticker: 0})
-
         
         return self.__size[ticker]

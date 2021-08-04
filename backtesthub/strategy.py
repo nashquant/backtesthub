@@ -15,15 +15,41 @@ from .order import *
 filterwarnings('ignore')
 
 @dataclass
-class Base(metaclass = ABCMeta):
+class Strategy(metaclass = ABCMeta):
     
     """
     
     """
     __dnames: Dict[str, Data]
-    __indicators: List[Line]
     __broker: Broker
     __params: Dict
+
+    @abstractmethod
+    def init(self):
+        """
+        Initialize the strategy.
+        Override this method.
+        Declare indicators (with `backtesting.backtesting.Strategy.I`).
+        Precompute what needs to be precomputed or can be precomputed
+        in a vectorized fashion before the strategy starts.
+        If you extend composable strategies from `backtesting.lib`,
+        make sure to call:
+            super().init()
+        """
+
+    @abstractmethod
+    def next(self):
+        """
+        Main strategy runtime method, called as each new
+        `backtesting.backtesting.Strategy.data`
+        instance (row; full candlestick bar) becomes available.
+        This is the main method where strategy decisions
+        upon data precomputed in `backtesting.backtesting.Strategy.init`
+        take place.
+        If you extend composable strategies from `backtesting.lib`,
+        make sure to call:
+            super().next()
+        """
 
     @property
     def equity(self) -> float:
@@ -124,33 +150,6 @@ class Base(metaclass = ABCMeta):
         )
         
         return value
-
-    @abstractmethod
-    def init(self):
-        """
-        Initialize the strategy.
-        Override this method.
-        Declare indicators (with `backtesting.backtesting.Strategy.I`).
-        Precompute what needs to be precomputed or can be precomputed
-        in a vectorized fashion before the strategy starts.
-        If you extend composable strategies from `backtesting.lib`,
-        make sure to call:
-            super().init()
-        """
-
-    @abstractmethod
-    def next(self):
-        """
-        Main strategy runtime method, called as each new
-        `backtesting.backtesting.Strategy.data`
-        instance (row; full candlestick bar) becomes available.
-        This is the main method where strategy decisions
-        upon data precomputed in `backtesting.backtesting.Strategy.init`
-        take place.
-        If you extend composable strategies from `backtesting.lib`,
-        make sure to call:
-            super().next()
-        """
 
     def buy(
         self,
