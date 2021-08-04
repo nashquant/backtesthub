@@ -1,73 +1,75 @@
 #! /usr/bin/env python3
 
+from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from typing import Dict
-
-__all__ = ["_Indicator", "_Array", "_Data"]
-
-class _Array(np.ndarray):
+from typing import Dict, Any, Optional, Sequence
+class Line(np.ndarray):
 
     """
     Numpy Array Extended Class
 
-    Adapted from Backtesting.py
-    https://github.com/kernc/backtesting.py.git
-    
+    * To find out more about __new__ and __array_finalize__ refer to:
+    https://numpy.org/doc/stable/user/basics.subclassing.html
+
+    * Inspired by both Backtesting.py and Backtrader Systems:
+    - https://github.com/kernc/backtesting.py.git
+    - https://github.com/mementum/backtrader
+
     """
 
-    def __new__(cls, array, *, name=None, **kwargs):
+    def __new__(cls,  **kwargs: Dict[str, Any]):
+        
+        array: Sequence = kwargs.pop("array", None)
+        line: Optional[str] = kwargs.pop("line", None)
+        
         obj = np.asarray(array).view(cls)
-        obj.name = name or array.name
+        obj.line = line or getattr(array, "line", "")
+        obj.kwargs = kwargs
+        
         return obj
 
     def __array_finalize__(self, obj):
-        if obj is not None:
-            self.name = getattr(obj, "name", "")
-
-    def __setstate__(self, state):
-        self.__dict__.update(state[-1])
-        super().__setstate__(state[:-1])
+        
+        if obj is None: return
+        
+        self.__line = getattr(obj, "line", "")
+        self.__index = getattr(obj, "index", {})
 
     def __bool__(self):
+
         try:
             return bool(self[-1])
-        except IndexError:
+        
+        except KeyError:
             return super().__bool__()
 
     def __float__(self):
+
         try:
             return float(self[-1])
-        except IndexError:
+        
+        except KeyError:
             return super().__float__()
 
     @property
     def s(self) -> pd.Series:
         values = np.atleast_2d(self)
-        index = self._opts["index"][: values.shape[1]]
-        return pd.Series(values[0], index=index, name=self.name)
+        index = self.__index[:values.shape[1]]
+        return pd.Series(values[0], index=index, name=self.__line)
 
     @property
     def df(self) -> pd.DataFrame:
         values = np.atleast_2d(np.asarray(self))
-        index = self._opts["index"][: values.shape[1]]
-        df = pd.DataFrame(values.T, index=index, columns=[self.name] * len(values))
+        index = self.__index[:values.shape[1]]
+        df = pd.DataFrame(values.T, index=index, columns=[self.__line] * len(values))
         return df
 
 
-class _Indicator(_Array):
-    """
-    
-    Indicator Base Class.
+@dataclass
+class Data:
 
-    Adapted from Backtesting.py
-    https://github.com/kernc/backtesting.py.git
-
-    """
-
-class _Data:
-    
     """
 
     A data array accessor. Provides access to OHLCV "columns"
@@ -80,80 +82,95 @@ class _Data:
 
     """
 
-    def __init__(self, df: pd.DataFrame):
-        self.__df = df
-        self.__i = len(df)
-        self.__cache: Dict[str, _Array] = {}
-        self.__arrays: Dict[str, _Array] = {}
-        self._update()
+    __df: pd.DataFrame
+    __cache: Dict[str, Line]
+    __lines: Dict[str, Line]
 
-    def __getitem__(self, item):
-        return self.__get_array(item)
+    def __init__(self, **kwargs):
+        
+        self.__df = kwargs.get('df', pd.DataFrame())
+        self.__cache = kwargs.get('cache', dict())
+        self.__lines = kwargs.get('lines', dict()) 
 
-    def __getattr__(self, item):
-        try:
-            return self.__get_array(item)
-        except KeyError:
-            raise AttributeError(f"Column '{item}' not in data") from None
+        self.__start()
 
-    def _set_length(self, i):
-        self.__i = i
-        self.__cache.clear()
-
-    def _update(self):
-        index = self.__df.index.copy()
-        self.__arrays = {
-            col: _Array(arr, index=index) for col, arr in self.__df.items()
+    def __start(self):
+        
+        idx = self.__df.index.copy()
+        
+        self.__lines = {
+            col: Line(array = arr, index=idx, line = col) \
+                for col, arr in self.__df.items()
         }
-        # Leave index as Series because pd.Timestamp nicer API to work with
-        self.__arrays["__index"] = index
+        
+        self.__lines["__index"] = idx
 
-    def __repr__(self):
-        i = min(self.__i, len(self.__df) - 1)
-        index = self.__arrays["__index"][i]
-        items = ", ".join(f"{k}={v}" for k, v in self.__df.iloc[i].items())
-        return f"<Data i={i} ({index}) {items}>"
+    def __getitem__(self, line: str):
+
+        return self.__get_line(line)
+
+    def __getattr__(self, line: str):
+        
+        try:
+            return self.__get_line(line)
+        
+        except KeyError:
+            raise AttributeError(f"Line '{line}' non existant")
+
+    def __get_line(self, line: str) -> Line:
+        
+        lobj = self.__cache.get(line)
+        
+        if lobj is None:
+            lobj = self.__lines[line]
+            lobj = lobj[:self.__len]
+            self.__cache[line] = lobj
+        
+        return lobj
 
     def __len__(self):
-        return self.__i
+        return self.__len
+
+    def __repr__(self):
+        idx = min(self.__len, len(self.__df) - 1)
+        index = self.__lines["__index"][idx]
+        items = ", ".join(f"{k}={v}" for k, v in self.__df.iloc[idx].items())
+        
+        return f"<Data i={idx} ({index}) {items}>"
+
+    ## DataFrame Properties ##
+
+    @property
+    def __len(self) -> int:
+
+        return len(self.__df)
 
     @property
     def df(self) -> pd.DataFrame:
-        return self.__df.iloc[: self.__i] if self.__i < len(self.__df) else self.__df
+        return self.__df.iloc[: self.__l] if self.__l < len(self.__df) else self.__df
 
-    def __get_array(self, key) -> _Array:
-        arr = self.__cache.get(key)
-        if arr is None:
-            arr = self.__cache[key] = self.__arrays[key][: self.__i]
-        return arr
+    ## Line Accessors ##
 
     @property
-    def Open(self) -> _Array:
-        return self.__get_array("Open")
+    def Open(self) -> Line:
+        return self.__get_line("Open")
 
     @property
-    def High(self) -> _Array:
-        return self.__get_array("High")
+    def High(self) -> Line:
+        return self.__get_line("High")
 
     @property
-    def Low(self) -> _Array:
-        return self.__get_array("Low")
+    def Low(self) -> Line:
+        return self.__get_line("Low")
 
     @property
-    def Close(self) -> _Array:
-        return self.__get_array("Close")
+    def Close(self) -> Line:
+        return self.__get_line("Close")
 
     @property
-    def Volume(self) -> _Array:
-        return self.__get_array("Volume")
+    def Volume(self) -> Line:
+        return self.__get_line("Volume")
 
     @property
     def index(self) -> pd.DatetimeIndex:
-        return self.__get_array("__index")
-
-    # Make pickling in Backtest.optimize() work with our catch-all __getattr__
-    def __getstate__(self):
-        return self.__dict__
-
-    def __setstate__(self, state):
-        self.__dict__ = state
+        return self.__get_line("__index")

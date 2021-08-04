@@ -11,14 +11,15 @@ from .order import Order
 
 filterwarnings("ignore")
 
-__all__ = ["Broker"]
-
 @dataclass
 class Broker:
 
-    __dnames: Dict[str, _Data]
+    __dnames: Dict[str, Data]
+    
     __orders: List[Order]
     __positions: List[Dict[str, int]]
+    
+    __equity: Optional[float]
     __cash: Optional[float]
     __comm: Optional[float]
     __margin: Optional[float]
@@ -31,6 +32,15 @@ class Broker:
         """
 
         return self.__comm
+
+    @property
+    def cash(self):
+
+        """
+        Total Cash Balance
+        """
+
+        return self.__equity
     
     @property
     def cash(self):

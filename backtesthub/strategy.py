@@ -14,15 +14,14 @@ from .order import *
 
 filterwarnings('ignore')
 
-__all__ = ['Base']
 @dataclass
 class Base(metaclass = ABCMeta):
     
     """
     
     """
-    __dnames: Dict[str, _Data]
-    __indicators: List[_Indicator]
+    __dnames: Dict[str, Data]
+    __indicators: List[Line]
     __broker: Broker
     __params: Dict
 
@@ -36,7 +35,7 @@ class Base(metaclass = ABCMeta):
         return self.__broker.equity
 
     @property
-    def data(self) -> _Data:
+    def data(self) -> Data:
         """
         
         * `data` is _not_ a DataFrame, but a custom structure
@@ -58,8 +57,9 @@ class Base(metaclass = ABCMeta):
 
         * If you need data arrays (e.g. `data.Close`) to be indexed
           **Pandas series**, you can call their `.s` accessor
-          (e.g. `data.Close.s`). If you need the whole of data
-          as a **DataFrame**, use `.df` accessor (i.e. `data.df`).
+          (e.g. `data.Close.s`). 
+          
+        
         """
         return self.__dnames['ticker']
 
@@ -74,7 +74,7 @@ class Base(metaclass = ABCMeta):
         return Order(self.__broker.orders)
 
 
-    def I(self, f: Callable, *args, **kwargs) -> _Indicator:
+    def I(self, f: Callable, *args, **kwargs) -> Line:
         
         """
         Declare indicator. 
@@ -118,7 +118,7 @@ class Base(metaclass = ABCMeta):
                 f'length as `data` (data shape: {self.__data.Close.shape};"'
                 f'shape: {getattr(value, "shape" , "")}, returned value: {value})')
 
-        value = _Indicator(
+        value = Line(
             value, 
             index=self.data.index
         )
