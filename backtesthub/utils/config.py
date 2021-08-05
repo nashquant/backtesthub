@@ -1,5 +1,6 @@
 
-_SCHEMAS = dict(
-    OC = ['Open', 'Close'],
-    OHLC = ['Open', 'High', 'Low', 'Close']
+_SCHEMA = dict(
+    OC = ['open', 'close'],
+    OHLC = ['open', 'high', 'low', 'close'],
+    OHLCV = ['open', 'high', 'low', 'close', 'volume']
 )

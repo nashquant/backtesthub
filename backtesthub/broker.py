@@ -6,7 +6,7 @@ from typing import List, Dict, Optional
 from warnings import filterwarnings
 from dataclasses import dataclass
 
-from .utils.static import *
+from .utils.types import *
 from .order import Order
 
 filterwarnings("ignore")
@@ -14,15 +14,8 @@ filterwarnings("ignore")
 @dataclass
 class Broker:
 
-    __dnames: Dict[str, Data]
-    
-    __orders: List[Order]
-    __positions: List[Dict[str, int]]
-    
-    __equity: Optional[float]
+    __datas: Dict[str, Asset]
     __cash: Optional[float]
-    __comm: Optional[float]
-    __margin: Optional[float]
 
     @property
     def comm(self):

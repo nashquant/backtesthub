@@ -4,7 +4,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from typing import Dict, Any, Optional, Sequence
+from typing import Dict, Sequence, Union, Any
+
 class Line(np.ndarray):
 
     """
@@ -13,9 +14,9 @@ class Line(np.ndarray):
     * To find out more about __new__ and __array_finalize__ refer to:
     https://numpy.org/doc/stable/user/basics.subclassing.html
 
-    * Inspired by both Backtesting.py and Backtrader Systems:
-    - https://github.com/kernc/backtesting.py.git
-    - https://github.com/mementum/backtrader
+    * This classes were nspired by both projects concepts:
+    - https://github.com/kernc/backtesting.py.git -> _Data and _Array
+    - https://github.com/mementum/backtrader -> Buffer, Lines, Accessors
 
     """
 
@@ -35,8 +36,9 @@ class Line(np.ndarray):
         self.__line = getattr(obj, "line", "")
         self.__index = getattr(obj, "index", {})
 
-    def __bool__(self):
+        self._set_buffer(len(self))
 
+    def __bool__(self):
         try:
             return bool(self[-1])
         
@@ -44,7 +46,6 @@ class Line(np.ndarray):
             return super().__bool__()
 
     def __float__(self):
-
         try:
             return float(self[-1])
         
@@ -52,7 +53,6 @@ class Line(np.ndarray):
             return super().__float__()
 
     def __repr__(self):
-
         line = self.__line
         index = self.__index[-1]
         value = self.__float__()
@@ -65,10 +65,22 @@ class Line(np.ndarray):
         
         return f"<Line ({index}) {line} = {value}>"
 
+    def _set_buffer(self, buff:int):
+        self.__buff = buff
+
+    def __getitem__(self, key) -> Any:
+        try:
+            bkey = key + self.__buff
+            return super().__getitem__(bkey)
+        
+        except KeyError:
+            return super().__getitem__(key)
+
     @property
     def s(self) -> pd.Series:
         values = np.atleast_2d(self)
         index = self.__index[:values.shape[1]]
+        
         return pd.Series(values[0], index=index, name=self.__line)
 
     @property
@@ -80,7 +92,7 @@ class Line(np.ndarray):
 
 
 @dataclass
-class Data:
+class Asset:
 
     """
 
@@ -92,18 +104,50 @@ class Data:
     * Inspired by both Backtesting.py and Backtrader Systems:
     - https://github.com/kernc/backtesting.py.git
     - https://github.com/mementum/backtrader
+    
+    <<<<<<<< REMEMBER TO ADD THOSE !!! >>>>>>>
+
+    * `mult` is the contract base price multiplier,
+      whenever this is declared, the data-type is 
+      assumed to be futures-like.
+    
+    * `comm` is the broker's commission per trade
+
+    * `commtype` is the commission type, which are by
+      default set to PERC to stock-like assets, while
+      ABS for future-like ones.
+
+    * `slip` is the estimated mean slippage per trade.
+      Slippage exists to account for the effects of bid-ask
+      spread.
+
+    * `margin` is the required margin (ratio) of a leveraged
+      account. No difference is made between initial and
+      maintenance margins. To run the backtest using e.g.
+      50:1 leverge that your broker allows, set margin to
+      `0.02` (1 / leverage).
 
     """
 
     __df: pd.DataFrame
     __cache: Dict[str, Line]
     __lines: Dict[str, Line]
+    __multiplier: float = 1.0
+    __stocklike: bool = True
+    __adjusted: bool = True
 
     def __init__(self, **kwargs):
         
         self.__df = kwargs.get('df', pd.DataFrame())
         self.__cache = kwargs.get('cache', dict())
-        self.__lines = kwargs.get('lines', dict()) 
+        self.__lines = kwargs.get('lines', dict())
+
+        if "multiplier" in kwargs.keys():
+
+            mult = kwargs.get('multiplier')
+
+            self.__stocklike = False
+            self.__multiplier = mult 
 
         self.__start()
 
@@ -112,18 +156,40 @@ class Data:
         idx = self.__df.index.copy()
         
         self.__lines = {
-            col: Line(array = arr, line = col) \
-                for col, arr in self.__df.items()
+            line: Line(array = vals, line = line) \
+                for line, vals in self.__df.items()
         }
         
         self.__lines["__index"] = idx
 
+        if not self.__adjusted: self.__adjust()
+
+    def __adjust(self):
+        
+        """
+        * Function that adjust stock data to
+          account for dividends and splits.
+
+        * Assumes OHLC data is raw, i.e. without
+          any type of adjustment, and assumes that
+          Data holds adjreturns Line.  
+        
+        """
+
+        pass
+
     def __len__(self):
-        return self.__len
+        return self.__buff
+
+    def _set_buffer(self, buff: int):
+        self.__buff = buff
+        self.__cache.clear()
+
+        for line in self.__lines.values():
+            line._set_buffer(buff)
 
     def __repr__(self):
-        
-        idx = min(self.__len, len(self.__df) - 1)
+        idx = min(self.__buff, len(self.__df) - 1)
         
         dct = {k:v for k, v in self.__df.iloc[idx].items()}
         lines = ", ".join("{}={:.2f}".format(k,v) for k, v in dct.items())
@@ -139,7 +205,6 @@ class Data:
         return f"<Data ({index}) {lines}>"
 
     def __getitem__(self, line: str):
-
         try:
             return self.__get_line(line)
         
@@ -148,7 +213,6 @@ class Data:
             raise AttributeError(msg)
 
     def __getattr__(self, line: str):
-        
         try:
             return self.__get_line(line)
         
@@ -157,7 +221,6 @@ class Data:
             raise AttributeError(msg)
 
     def __get_line(self, line: str) -> Line:
-        
         lobj = self.__cache.get(line)
         
         if lobj is None:
