@@ -131,3 +131,4 @@ dmypy.json
 # Sandbox
 
 .sandbox.py
+.test.py

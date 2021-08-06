@@ -48,10 +48,8 @@ class Broker:
         pass
 
     def next(self):
-
-        for data in self.__datas:
-            i = self._i = len(data) - 1
-            self.__process_orders()
+            
+        self.__process_orders()
 
 
     @property

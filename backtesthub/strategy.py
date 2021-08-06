@@ -6,7 +6,6 @@ from .utils.types import *
 from warnings import filterwarnings
 from abc import ABCMeta, abstractmethod
 from typing import List, Dict, Callable
-from dataclasses import dataclass, field
 
 from .position import *
 from .broker import *
@@ -90,7 +89,7 @@ class Strategy(metaclass=ABCMeta):
 
         try:
             ind = f(**params)
-
+            
         except Exception as e:
             raise Exception(e)
 
@@ -100,11 +99,9 @@ class Strategy(metaclass=ABCMeta):
         self.indicators[name] = Line(array=ind, index=data.index)
 
     def buy(self, ticker: str, size: float, price: float):
-
         return self.__broker.order(ticker, abs(size), price)
 
     def sell(self, ticker: str, size: float, price: float):
-
         return self.__broker.order(ticker, -abs(size), price)
 
     @property
@@ -139,14 +136,20 @@ class Strategy(metaclass=ABCMeta):
             msg = "Ticker request not found"
             raise ValueError(msg)
 
-        return self.__datas[self.tk]
+        return self.__datas[ticker]
 
     @property
     def position(self) -> List[Position]:
-        """Instance of `backtesting.backtesting.Position`."""
+        """
+        Returns `Position` List.
+        """
+        
         return self.__broker.position
 
     @property
     def orders(self) -> List[Order]:
-        """List of orders (see `Order`) waiting for execution."""
-        return Order(self.__broker.orders)
+        """
+        Returns `Order` List. 
+        """
+       
+        return self.__broker.orders
