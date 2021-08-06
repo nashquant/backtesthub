@@ -1,36 +1,64 @@
 #! /usr/bin/env python3
 
-import numpy as np
-import pandas as pd
-from typing import List, Dict, Optional
+from collections import deque
+
+from numbers import Number
 from warnings import filterwarnings
-from dataclasses import dataclass
+from typing import List, Dict, Optional
+from dataclasses import dataclass, field
 
 from .utils.types import *
 from .order import Order
+from .position import Position
 
 filterwarnings("ignore")
 
 @dataclass
 class Broker:
 
-    __datas: Dict[str, Asset]
-    __cash: Optional[float]
+    __cash: Number = field(default = {}, compare = True, repr = True)
+    __equity: Number = field(default = {}, compare = True, repr = True)
+    __orders: List = field(default = [], compare = True, repr = True)
+    __datas: Dict[str, Asset] = field(default = {}, compare = False, repr = False)
+    __positions: Dict[str, Position] = field(default = {}, compare = True, repr = True)
+
+    def __init__(self, **kwargs):
+
+        self.__cash = kwargs.get('cash')
+        self.__equity = kwargs.get('cash')
+        self.__datas = kwargs.get('datas')
+
+
+    def order(
+        self,
+        ticker: str,
+        size: float,
+        limit: float,
+    ):
+
+        order = Order( 
+            ticker, 
+            size, 
+            limit
+        )
+        
+        self.__orders.append(order)
+
+    def __process_orders(self):
+        pass
+
+    def next(self):
+
+        for data in self.__datas:
+            i = self._i = len(data) - 1
+            self.__process_orders()
+
 
     @property
-    def comm(self):
+    def equity(self):
 
         """
-        Comission Values
-        """
-
-        return self.__comm
-
-    @property
-    def cash(self):
-
-        """
-        Total Cash Balance
+        Total Equity Balance
         """
 
         return self.__equity
@@ -43,68 +71,24 @@ class Broker:
         """
 
         return self.__cash
+
+    @property
+    def position(self):
+
+        """
+        Current Positions
+        """
+
+        return self.__positions
     
     @property
-    def lev(self):
+    def orders(self):
 
         """
-        Total Leverage
+        Current Orders
         """
 
-        if not self.__margin:
-            return 1
-
-        return 1/self.__margin
-
-    @property
-    def oprc(self) -> float:
-        
-        """
-        Open close price
-        """
-
-        return self.__dnames[self.__tk].Open[0]
-    
-    @property
-    def prc(self) -> float:
-        
-        """
-        Current close price
-        """
-
-        return self.__dnames[self.__tk].Close[0]
-
-    @property
-    def lprc(self) -> float:
-        
-        """
-        Last close price
-        """
-
-        return self.__dnames[self.__tk].Close[-1]
-
-
-    def _issue_order(
-        self,
-        ticker: str,
-        size: float,
-        limit: float = None,
-    ):
-
-        order = Order(
-            self, 
-            ticker, 
-            size, 
-            limit
-        )
-        
-        self.__orders.insert(0, order)
-
-    def _process_orders(self):
-        pass
-
-    def next(self):
-        pass
+        return self.__orders
     
     
 

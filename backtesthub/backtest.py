@@ -5,61 +5,77 @@ import pandas as pd
 
 from numbers import Number
 from warnings import filterwarnings
-from typing import List, Dict, Optional
+from datetime import date, datetime
+from typing import List, Dict, Union, Sequence
 
 from .broker import Broker
 from .strategy import Strategy
 from .utils.config import _SCHEMA
-from .utils.types import Data, Line
+from .utils.types import Asset, Line
 
 
 filterwarnings("ignore")
 
 
 class Backtest:
-    """
-    Backtest a parameterized strategy
-    on single/multi data, hedged/unhedged
-    data or even stock/futures data.
 
     """
+    __INTRO__
+
+    * Backtest Initialization. This object is responsible for
+        orchestrating all complementary objects (Strategy, Broker, 
+        Position, ...) in order to properly run the simulation. 
+        Lots of features such as intraday operations, multi-calendar 
+        runs, live trading, etc. are still pending development.
+
+    __KWARGS__ 
+
+    * `datas` is a sequence of `pd.DataFrame` with columns:
+        `Open`, `High`, `Low`, `Close`, (optionally) `Volume`.
+
+        The passed data frame can contain additional columns that
+        can be used by the strategy.
+
+        DataFrame index can be either a date/datetime index.
+        Still not implemented other formats (str isoformat, int,...)
+
+    * `strategy` is a `backtesting.backtesting.Strategy`
+        __subclass__ (NOT AN INSTANCE!!).
+
+    * Global index is derived by the combination of:
+
+        - `sdate` the start date for the simulation.
+        - `edate` the end date for the simulation.
+        - `holidays` a list of non-tradable days.
+
+    * `cash` is the initial cash to start with.
+
+    """
+
 
     def __init__(
         self,
+        strategy: Strategy,
         datas: Dict[str, pd.DataFrame],
-        strategy: Optional[Strategy],
+        sdate: Union[date, datetime],
+        edate: Union[date, datetime],
+        holidays: Sequence[date],
         cash: float = float("10e6"),
     ):
 
-        """
-        * Initialize a backtest. Requires data and a strategy to test.
-
-        * `datas` is a sequence of `pd.DataFrame` with columns:
-          `Open`, `High`, `Low`, `Close`, (optionally) `Volume`.
-
-          The passed data frame can contain additional columns that
-          can be used by the strategy.
-
-          DataFrame index can be either a datetime index (timestamps)
-          or a monotonic range index (i.e. a sequence of periods).
-
-        * `strategy` is a `backtesting.backtesting.Strategy`
-          _subclass_ (not an instance).
-
-        * `cash` is the initial cash to start with.
-
-        """
-
-        ## SET VARIABLES ##
+        ## <<SET VARIABLES>> ##
 
         self.__datas = datas
         self.__strategy = strategy
+        self.__holidays = holidays
+        self.__sdate = sdate
+        self.__edate = edate
         self.__cash = cash
 
         self.__ohlc: List[str] = _SCHEMA["OHLC"]
         self.__ohlcv: List[str] = _SCHEMA["OHLCV"]
 
-        ## VERIFY INTEGRITY ##
+        ## <<VERIFY INTEGRITY>> ##
 
         if not (issubclass(self.__strategy, Strategy)):
             msg = "Arg `strategy` must be a Strategy sub-type"
@@ -81,7 +97,7 @@ class Backtest:
                 msg = "Arg `datas` must hold OHLC schemed pandas.DataFrame"
                 raise ValueError(msg)
 
-        ## BUILD ENTITIES ##
+        ## <<BUILD ENTITIES>> ##
 
         self.__broker = Broker(
             datas=self.__datas,
@@ -95,42 +111,21 @@ class Backtest:
 
         strategy.init()
 
-        # Indicators used in Strategy.next()
-        indicator_attrs = {
-            attr: indicator
-            for attr, indicator in strategy.__dict__.items()
-            if isinstance(indicator, Line)
-        }.items()
+        ## <<<< Implement buffer handling! >>>> ##
 
-        start_buffer = 1 + max(
-            (
-                np.isnan(indicator.astype(float)).argmin(axis=-1).max()
-                for _, indicator in indicator_attrs
-            ),
-            default=0,
-        )
+        buffer = 200
 
-        with np.errstate(invalid="ignore"):
+        ## <<<< Implement "logging lib" error tracing! >>>> ##
+        ## <<<< Implement index by sdate, edate, holidays >>>> ##
 
-            for i in range(start_buffer, len(self.__index)):
+        while True:
 
-                for data in self.__datas:
+            for ticker in self.__datas:
 
-                    data._set_buffer(i + 1)
+                data = self.__datas[ticker]
+                data._set_buffer(buffer)
 
-                    for attr, indicator in indicator_attrs:
-                        setattr(strategy, attr, indicator[..., : i + 1])
+                broker.next()
+                strategy.next()
 
-                    broker.next()
-
-                    # Next tick, a moment before bar close
-                    strategy.next()
-                else:
-                    # Close any remaining open trades so they produce some stats
-                    for trade in broker.trades:
-                        trade.close()
-
-                    # Re-run broker one last time to handle orders placed in the last strategy
-                    # iteration. Use the same OHLC values as in the last broker iteration.
-                    if start_buffer < len(self._data):
-                        broker.next
+                buffer += 1

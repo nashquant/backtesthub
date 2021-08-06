@@ -1,35 +1,55 @@
 #! /usr/bin/env python3
 
-import numpy as np
-import pandas as pd
-from .utils.static import *
-from dataclasses import dataclass
-from typing import List, Optional
+from datetime import date, datetime
+from numbers import Number
+from dataclasses import dataclass, field
 from warnings import filterwarnings
-from .broker import Broker
 
 filterwarnings('ignore')
 
-
+@dataclass(frozen=True)
 class Order:
     
-    __broker: Broker
-    __size: float
-    __price: float
+    __ticker: str = field(repr = True, compare = True)
+    __limit: Number = field(repr = True, compare = False)
+    __size: Number = field(repr = True,  compare = False)
+
+    def __init__(self, **kwargs):
+
+        self.__ticker = kwargs.get('ticker', '')
+        self.__limit = kwargs.get('limit', 0)
+        self.__size = kwargs.get('size', 0)
+
+        idt = kwargs.get('idt') ## issue date
+
+        if not self.__ticker:
+            msg = "You must assign a ticker to the order"
+            raise ValueError(msg)
+
+        if isinstance(idt, datetime):
+            self.__idt = idt.date()
+
+        elif isinstance(idt, str):
+            msg = "Isoformat data reading not ready!"
+            raise NotImplementedError(msg)
+        
+        elif not isinstance(idt, date):
+            msg = "`idt` must be date/datetime"
+            raise TypeError(msg)
+
 
     @property
-    def size(self) -> float:
-        """
-        Order size (negative for short orders).
-        If size is a value between 0 and 1, it is interpreted as a fraction of current
-        available liquidity (cash plus `Position.pl` minus used margin).
-        A value greater than or equal to 1 indicates an absolute number of units.
-        """
-        return self.__size
-
-    @property
-    def price(self) -> Optional[float]:
+    def idt(self) -> date:
+        
         """
         
         """
-        return self.__price
+        return self.__idt
+    
+    @property
+    def size(self) -> Number:
+        
+        """
+        
+        """
+        return self.__size

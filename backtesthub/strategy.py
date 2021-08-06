@@ -3,26 +3,32 @@
 import numpy as np
 import pandas as pd
 from .utils.types import *
-from dataclasses import dataclass
 from warnings import filterwarnings
-from abc import ABCMeta, abstractmethod 
+from abc import ABCMeta, abstractmethod
 from typing import List, Dict, Callable
+from dataclasses import dataclass, field
 
 from .position import *
 from .broker import *
 from .order import *
 
-filterwarnings('ignore')
+filterwarnings("ignore")
 
-@dataclass
-class Strategy(metaclass = ABCMeta):
-    
-    """
-    
-    """
-    __datas: Dict[str, Asset]
-    __broker: Broker
-    __params: Dict
+
+class Strategy(metaclass=ABCMeta):
+
+    """ """
+
+    def __init__(
+        self,
+        broker: Broker,
+        datas: Dict[str, pd.DataFrame] = {},
+    ):
+
+        self.__datas = datas
+        self.__broker = broker
+
+        self.indicators = {}
 
     @abstractmethod
     def init(self):
@@ -30,12 +36,12 @@ class Strategy(metaclass = ABCMeta):
         * To initialize the strategy, override this method.
 
         * Declare indicators (with `backtesting.backtesting.Strategy.I`).
-        
+
         * Precompute what needs to be precomputed or can be precomputed
           in a vectorized fashion before the strategy starts.
-        
+
         * If you extend composable strategies from `backtesting.lib`,
-        
+
         * make sure to call `super().init()`
         """
 
@@ -43,131 +49,95 @@ class Strategy(metaclass = ABCMeta):
     def next(self):
         """
         * Main strategy runtime method, called as each new
-          `backtesting.backtesting.Strategy.data` instance 
+          `backtesting.backtesting.Strategy.data` instance
           (row; full candlestick bar) becomes available.
-        
+
         * This is the main method where strategy decisions
           upon data precomputed in `backtesting.backtesting.
           Strategy.init` take place.
-        
+
         * If you extend composable strategies from `backtesting.lib`,
-        
+
         * make sure to call `super().next()`!
         """
 
+    def I(self, data: Asset, f: Callable, **params) -> Line:
 
-    def I(self, data: Asset, f: Callable, *args, **kwargs) -> Line:
-        
         """
-        Declare indicator. 
-        
-        * An indicator is just a line of values,but one that is revealed 
+        Declare indicator.
+
+        * An indicator is just a line of values,but one that is revealed
           gradually in `backtesting.backtesting.Strategy.next` much like
           `backtesting.backtesting.Strategy.data` is.
-        
+
         * `func` is a function that returns the indicator array(s) of
           same length as `backtesting.backtesting.Strategy.data`.
-        
+
         * Additional `*args` and `**kwargs` are passed to `func` and can
           be used for parameters.
-        
+
         * For example, using simple moving average function from TA-Lib:
             def init():
                 self.sma = self.I(ta.SMA, self.data.Close, self.n_sma)
         """
 
+        assert type(data) == Asset
+
+        name = params.pop("name", None)
+
+        if name is None:
+            name = f"{f.__name__}{tuple(params.items())}"
+
         try:
-            value = f(*args, **kwargs)
-        
+            ind = f(**params)
+
         except Exception as e:
             raise Exception(e)
 
-        if isinstance(value, pd.DataFrame):
-            value = value.values.T
+        if isinstance(ind, pd.DataFrame):
+            ind = ind.values.T
 
-        if value is not None:
-            value = np.asarray(value, order='C')
-        is_arraylike = value is not None
+        self.indicators[name] = Line(array=ind, index=data.index)
 
-        # Optionally flip the array if the user returned e.g. `df.values`
-        if is_arraylike and np.argmax(value.shape) == 0:
-            value = value.T
+    def buy(self, ticker: str, size: float, price: float):
 
-        if not is_arraylike or not 1 <= value.ndim <= 2 or value.shape[-1] != len(data.Close):
-            raise ValueError(
-                'Indicators must return (optionally a tuple of) numpy.arrays of same '
-                f'length as `data` (data shape: {self.__data.Close.shape};"'
-                f'shape: {getattr(value, "shape" , "")}, returned value: {value})')
+        return self.__broker.order(ticker, abs(size), price)
 
-        value = Line(
-            array = value, 
-            index=self.data.index
-        )
-        
-        return value
+    def sell(self, ticker: str, size: float, price: float):
 
-    def buy(
-        self,
-        ticker: str,
-        size: float,
-        price: float
-    ):
-        
-        return self.__broker._issue_order(
-            ticker, size, price
-        )
-
-    def sell(
-        self,
-        ticker: str,
-        size: float,
-        price: float
-    ):
-        
-        return self.__broker._issue_order(
-            ticker, -size, price
-        )
+        return self.__broker.order(ticker, -abs(size), price)
 
     @property
     def equity(self) -> float:
-        
+
         """
-        Current account equity 
+        Current account equity
         """
-        
+
         return self.__broker.equity
 
-    @property
-    def data(self) -> Asset:
-        """
+    
+    def get_data(self, ticker: str) -> Asset:
         
+        """
         * `data` is _not_ a DataFrame, but a custom structure
           that serves customized numpy arrays for reasons of performance
-          and convenience. Besides OHLCV columns, `.index` and length,
-          it offers `.pip` property, the smallest price unit of change.
+          and convenience.
 
         * Within `backtesting.backtesting.Strategy.init`, `data` arrays
-          are available in full length, as passed into
-          `backtesting.backtesting.Backtest.__init__`
-          (for precomputing indicators and such). However, within
-          `backtesting.backtesting.Strategy.next`, `data` arrays are
-          only as long as the current iteration, simulating gradual
-          price point revelation. 
-          
-        * In each call of `backtesting.backtesting.Strategy.next` 
-          (iteratively called by `backtesting.backtesting.Backtest` 
-          internally), the last array value (e.g. `data.Close[-1]`)
+          are available in full length, as passed into `backtesting.
+          backtesting.Backtest.__init__`.
+
+        * In each call of `backtesting.backtesting.Strategy.next`
+          (iteratively called by `backtesting.backtesting.Backtest`
+          internally), the last array value (e.g. `data.Close[0]`)
           is always the _most recent_ value.
 
-        * If you need data arrays (e.g. `data.Close`) to be indexed
-          **Pandas series**, you can call their `.s` accessor
-          (e.g. `data.Close.s`). 
-          
-        
         """
 
-        if not self.tk:
-            self.tk = self.__datas.keys()[0]
+        if not ticker or ticker not in self.__datas:
+            msg = "Ticker request not found"
+            raise ValueError(msg)
 
         return self.__datas[self.tk]
 
@@ -180,6 +150,3 @@ class Strategy(metaclass = ABCMeta):
     def orders(self) -> List[Order]:
         """List of orders (see `Order`) waiting for execution."""
         return Order(self.__broker.orders)
-
-
-    

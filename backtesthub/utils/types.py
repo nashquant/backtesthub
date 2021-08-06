@@ -4,7 +4,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from typing import Dict, Sequence, Union, Any
+from typing import Dict, Sequence, Any
+from .config import _SCHEMA, _COMMTYPE
 
 class Line(np.ndarray):
 
@@ -36,18 +37,18 @@ class Line(np.ndarray):
         self.__line = getattr(obj, "line", "")
         self.__index = getattr(obj, "index", {})
 
-        self._set_buffer(len(self))
+        self._set_buffer()
 
     def __bool__(self):
         try:
-            return bool(self[-1])
+            return bool(self[0])
         
         except KeyError:
             return super().__bool__()
 
     def __float__(self):
         try:
-            return float(self[-1])
+            return float(self[0])
         
         except KeyError:
             return super().__float__()
@@ -65,12 +66,12 @@ class Line(np.ndarray):
         
         return f"<Line ({index}) {line} = {value}>"
 
-    def _set_buffer(self, buff:int):
+    def _set_buffer(self, buff:int = 1):
         self.__buff = buff
 
     def __getitem__(self, key) -> Any:
         try:
-            bkey = key + self.__buff
+            bkey = key + self.__buff - 1
             return super().__getitem__(bkey)
         
         except KeyError:
@@ -97,15 +98,9 @@ class Asset:
     """
 
     * A data array accessor. Provides access to OHLCV "columns"
-    as a standard `pd.DataFrame` would, except it's not a DataFrame
-    and the returned "series" are _not_ `pd.Series` but `np.ndarray`
-    for performance purposes.
-
-    * Inspired by both Backtesting.py and Backtrader Systems:
-    - https://github.com/kernc/backtesting.py.git
-    - https://github.com/mementum/backtrader
-    
-    <<<<<<<< REMEMBER TO ADD THOSE !!! >>>>>>>
+      as a standard `pd.DataFrame` would, except it's not a DataFrame
+      and the returned "series" are _not_ `pd.Series` but `np.ndarray`
+      for performance purposes.
 
     * `mult` is the contract base price multiplier,
       whenever this is declared, the data-type is 
@@ -113,9 +108,9 @@ class Asset:
     
     * `comm` is the broker's commission per trade
 
-    * `commtype` is the commission type, which are by
-      default set to PERC to stock-like assets, while
-      ABS for future-like ones.
+    * `ctype` is the commission type, which are by
+      default set to "PERC" to stock-like assets (S), 
+      while "ABS" for future-like ones (F).
 
     * `slip` is the estimated mean slippage per trade.
       Slippage exists to account for the effects of bid-ask
@@ -123,30 +118,46 @@ class Asset:
 
     * `margin` is the required margin (ratio) of a leveraged
       account. No difference is made between initial and
-      maintenance margins. To run the backtest using e.g.
-      50:1 leverge that your broker allows, set margin to
-      `0.02` (1 / leverage).
+      maintenance margins.
+
+    * Inspired by both Backtesting.py and Backtrader Systems:
+      - https://github.com/kernc/backtesting.py.git
+      - https://github.com/mementum/backtrader
+
+    * Different from backtesting.py, we treat the basic Data 
+      Structure as having all properties of an asset, besides 
+      that we assume the lines can be accessed by the indexation 
+      of zero-reference (i.e. index 0 access the current point, 
+      not the first) 
 
     """
 
     __df: pd.DataFrame
-    __cache: Dict[str, Line]
     __lines: Dict[str, Line]
-    __multiplier: float = 1.0
+    __margin: float = float("1")
+    __mult: float = float("1")
+    __ctype: str = _COMMTYPE["S"]
+    __comm: float = float("10e-2")
+    __slip: float = float("10e-2")
     __stocklike: bool = True
+    __hedgelike: bool = False
     __adjusted: bool = True
 
     def __init__(self, **kwargs):
         
         self.__df = kwargs.get('df', pd.DataFrame())
-        self.__cache = kwargs.get('cache', dict())
         self.__lines = kwargs.get('lines', dict())
 
-        if "multiplier" in kwargs.keys():
+        self.__inputs = {
+            k.lower(): v for k, v in kwargs.items()
+        }
 
-            mult = kwargs.get('multiplier')
+        if "mult" in self.__inputs:
+
+            mult = self.__inputs.get('mult')
 
             self.__stocklike = False
+            self.__ctype = _COMMTYPE["F"]
             self.__multiplier = mult 
 
         self.__start()
@@ -183,7 +194,6 @@ class Asset:
 
     def _set_buffer(self, buff: int):
         self.__buff = buff
-        self.__cache.clear()
 
         for line in self.__lines.values():
             line._set_buffer(buff)
@@ -206,7 +216,7 @@ class Asset:
 
     def __getitem__(self, line: str):
         try:
-            return self.__get_line(line)
+            return self.__lines.get(line)
         
         except:
             msg = f"Line '{line}' non existant"
@@ -214,21 +224,11 @@ class Asset:
 
     def __getattr__(self, line: str):
         try:
-            return self.__get_line(line)
+            return self.__lines.get(line)
         
         except:
             msg = f"Line '{line}' non existant"
             raise AttributeError(msg)
-
-    def __get_line(self, line: str) -> Line:
-        lobj = self.__cache.get(line)
-        
-        if lobj is None:
-            lobj = self.__lines[line]
-            lobj = lobj[:self.__len]
-            self.__cache[line] = lobj
-        
-        return lobj
 
     ## DataFrame Properties ##
 
