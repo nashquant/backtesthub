@@ -60,13 +60,12 @@ class Data:
         self.__lines = {}
 
         idx = self.__df.index.copy()
-        self.__lines["__index"] = Line(array = idx)
+        self.__lines["__index"] = Line(array=idx)
         self.__lines.update(
-            {l.lower(): Line(array=arr) for \
-                l, arr in self.__df.items()}
+            {l.lower(): Line(array=arr) for l, arr in self.__df.items()}
         )
 
-        self.set_buffer(bf = 0)
+        self.set_buffer(bf=0)
 
     def __repr__(self):
 
@@ -107,6 +106,7 @@ class Data:
             msg = f"Line '{line}' non existant"
             raise AttributeError(msg)
 
+
 class Asset(Data):
 
     """
@@ -131,37 +131,73 @@ class Asset(Data):
 
     """
 
-    def __init__(self, ticker: str, data: pd.DataFrame):
+    def __init__(
+        self, 
+        ticker: str,
+        data: pd.DataFrame
+    ):
 
         self.__ticker = ticker
         super().__init__(data=data)
 
-        self.set_properties()
+        self.config()
 
         ## << Implement functions to verify schema conformation!! >> ##
 
-    def set_properties(
+    def config(
         self,
-        comm: Optional[Number] = 0,
+        comm: Number = 0,
+        margin: Number = 1,
         ctype: Optional[str] = None,
         mult: Optional[Number] = None,
     ):
-        self.__comm = comm
+        
+        
+        if comm >=0:
+            self.__comm = comm
+        else:
+            msg = "Invalid value for comm"
+            raise ValueError(msg)
+        
+        if margin >=0:
+            self.__margin = margin
+        else:
+            msg = "Invalid value for margin"
+            raise ValueError(msg)
 
         if mult is not None:
             self.__mult = mult
+            self.__margin = margin
             self.__stocklike = False
+            self.__asset = self.__ticker[:-3]
             self.__ctype = ctype or _COMMTYPE["F"]
 
         else:
             self.__mult = 1
+            self.__margin = margin
             self.__stocklike = True
+            self.__asset = self.__ticker
             self.__ctype = ctype or _COMMTYPE["S"]
 
     @property
     def ticker(self):
 
         return self.__ticker
+
+    @property
+    def asset(self):
+
+        """
+        For futures-like assets,
+        ticker = "{ASSET}{CODE}"
+        Where CODE is something
+        like "Z20", meaning that
+        the maturity was at the
+        month "Z" (december) of
+        the year "2020".   
+        """
+
+        return self.__asset
 
     @property
     def mult(self):
@@ -182,6 +218,12 @@ class Asset(Data):
     def ctype(self):
 
         return self.__ctype
+
+    @property
+    def leverage(self):
+
+
+        return 1/self.__margin
 
 
 class Hedge(Asset):

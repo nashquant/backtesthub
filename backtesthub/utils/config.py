@@ -23,3 +23,7 @@ _HMETHOD = dict(
     E = "EXPOSITION",
     B = "BETA",
 )
+
+_RATESLIKE = (
+    "DI1", "DAP", "DDI",
+)

@@ -1,13 +1,12 @@
 #! /usr/bin/env python3
 
 from numbers import Number
+from typing import Union
 from warnings import filterwarnings
-from typing import Union, Dict, List
-from dataclasses import dataclass, field
+from dataclasses import dataclass, InitVar, field
 
-from .broker import Broker
 from utils.config import _METHOD
-from .utils.types import Asset, Hedge,Line
+from utils.types import Asset, Hedge
 
 filterwarnings('ignore')
 
@@ -22,31 +21,16 @@ class Position:
     * `__ticker` differs from `asset` for futures-like
       
        
-    
     """
+
+    data: Union[Asset, Hedge] = field(compare = False, repr = False)
     
-    __ticker: str = field(default = "", compare = False, repr = True)
-    __asset: Union[Asset, Hedge] =  field(default = "", compare = True, repr = True)
-    __size: Number = field(default = 0, compare = False, repr = True)
-    __target: Number = field(default = 0, compare = False, repr = False)
-    __method: str = field(default = _METHOD["V"], compare = False, repr = False)
-    __signal: Number = field(default = 0, compare = False, repr = True)
-    __stocklike: bool = field(default = True, compare = False, repr = True)
-    __hedgelike: bool = field(default = True, compare = True, repr = True)
+    __size: Number = field(init = False, default = 0, compare = False, repr = True)
+    __signal: Number = field(init = False, default = 0, compare = False, repr = True)
+    __target: Number = field(init = False, default = 0, compare = False, repr = False)
+    __method: str = field(init = False, default = _METHOD["V"], compare = False, repr = False)
 
-    
-    def set_position(
-        self,
-        ticker: str, 
-        asset: str = None,
-        size: Number = 1  
-    ):
-
-        self.__ticker = ticker
-        self.__size = 
-        self.__asset = asset if asset else ticker
-
-    def set_method(
+    def config(
         self,
         method: str
     ):
@@ -54,6 +38,8 @@ class Position:
         if method not in _METHOD:
             msg = "Method not recognized"
             raise NotImplementedError(msg)
+
+        self.__method = method
     
     def update(self, ticker):
 
@@ -64,6 +50,16 @@ class Position:
         """
 
         pass
+
+    def data(self) -> Union[Asset, Hedge]:
+
+        """
+
+        Expose `self.__data` to client
+        
+        """
+
+        return self.__data
 
     
     @property

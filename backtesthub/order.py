@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 from numbers import Number
-from dataclasses import dataclass, field
+from dataclasses import dataclass, InitVar, field
 from warnings import filterwarnings
 
 filterwarnings('ignore')
