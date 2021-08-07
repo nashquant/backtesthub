@@ -1,13 +1,13 @@
 #! /usr/bin/env python3
 
 from numbers import Number
-from typing import Any, Dict, List
 from warnings import filterwarnings
+from typing import Union, Dict, List
 from dataclasses import dataclass, field
 
 from .broker import Broker
 from utils.config import _METHOD
-from .utils.types import Asset, Line
+from .utils.types import Asset, Hedge,Line
 
 filterwarnings('ignore')
 
@@ -24,18 +24,48 @@ class Position:
        
     
     """
-
-    m = _METHOD["FIXED"]
     
-    __ticker: field(default = "")
-    __asset: field(default = "")
-    __size: Number = field(default = 0)
-    __target: Number = field(default = 0)
-    __method: str = field(default = m)
-    __signal: Number = field(default = 0)
-    __stocklike: bool = field(default = True)
-    __hedgelike: bool = field(default = True)
+    __ticker: str = field(default = "", compare = False, repr = True)
+    __asset: Union[Asset, Hedge] =  field(default = "", compare = True, repr = True)
+    __size: Number = field(default = 0, compare = False, repr = True)
+    __target: Number = field(default = 0, compare = False, repr = False)
+    __method: str = field(default = _METHOD["V"], compare = False, repr = False)
+    __signal: Number = field(default = 0, compare = False, repr = True)
+    __stocklike: bool = field(default = True, compare = False, repr = True)
+    __hedgelike: bool = field(default = True, compare = True, repr = True)
 
+    
+    def set_position(
+        self,
+        ticker: str, 
+        asset: str = None,
+        size: Number = 1  
+    ):
+
+        self.__ticker = ticker
+        self.__size = 
+        self.__asset = asset if asset else ticker
+
+    def set_method(
+        self,
+        method: str
+    ):
+
+        if method not in _METHOD:
+            msg = "Method not recognized"
+            raise NotImplementedError(msg)
+    
+    def update(self, ticker):
+
+        """
+
+        Update Target Sizing 
+        
+        """
+
+        pass
+
+    
     @property
     def target(self) -> float:
         
@@ -59,7 +89,7 @@ class Position:
         return self.__size
 
     @property
-    def get_signal(self) -> float:
+    def signal(self) -> float:
         
         """
 
@@ -68,14 +98,3 @@ class Position:
         """
         
         return self.__signal
-
-    def update(self, ticker):
-
-        """
-
-        Update Target Sizing 
-        
-        """
-
-        pass
-

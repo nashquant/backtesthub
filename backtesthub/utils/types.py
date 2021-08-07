@@ -5,30 +5,22 @@ import pandas as pd
 
 from numbers import Number
 from typing import Optional, Sequence
-from .config import _SCHEMA, _COMMTYPE
+from .config import _HMETHOD, _COMMTYPE
+
 
 class Line(np.ndarray):
 
     """
-    Numpy Array Extended Class
-
-    * To find out more about __new__ and __array_finalize__ refer to:
-    https://numpy.org/doc/stable/user/basics.subclassing.html
+    Numpy Ndarray Based Concept of Lines
 
     """
 
-    def __new__(cls, array: Sequence, line: str):
-        
+    def __new__(cls, array: Sequence):
+
         obj = np.asarray(array).view(cls)
-        obj.line = line or getattr(array, "line")
-                
+        obj.array = np.asarray(array)
+
         return obj
-
-    def __array_finalize__(self, obj):
-        
-        if obj is None: return
-
-        self.set_buffer(bf = 0)
 
     def set_buffer(self, bf: int):
         self.__buffer = bf
@@ -37,28 +29,96 @@ class Line(np.ndarray):
         try:
             bkey = key + self.__buffer
             return super().__getitem__(bkey)
-        
+
         except KeyError:
             return super().__getitem__(key)
 
 
-class Asset:
+class Data:
 
     """
-
     * A data array accessor. Provides access to OHLCV "columns"
       as a standard `pd.DataFrame` would, except it's not a DataFrame
       and the returned "series" are _not_ `pd.Series` but `np.ndarray`
       for performance purposes.
 
+    * Inspired by both Backtesting.py and Backtrader Systems:
+      - https://github.com/kernc/backtesting.py.git
+      - https://github.com/mementum/backtrader
+
+    * Different from backtesting.py, we treat the basic Data
+      Structure as having all properties of an asset, besides
+      that we assume the lines can be accessed by the indexation
+      of zero-reference (i.e. index 0 access the current point,
+      not the first)
+
+    """
+
+    def __init__(self, data: pd.DataFrame):
+
+        self.__df = data
+        self.__lines = {}
+
+        idx = self.__df.index.copy()
+        self.__lines["__index"] = Line(array = idx)
+        self.__lines.update(
+            {l.lower(): Line(array=arr) for \
+                l, arr in self.__df.items()}
+        )
+
+        self.set_buffer(bf = 0)
+
+    def __repr__(self):
+
+        maxlen = len(self.__df) - 1
+        i = min(self.__buffer, maxlen)
+
+        index = self.__lines["__index"][i]
+        dct = {k: v for k, v in self.__df.iloc[i].items()}
+        lines = ", ".join("{}={:.2f}".format(k, v) for k, v in dct.items())
+
+        if hasattr(index, "date"):
+            index = index.date()
+
+        if hasattr(index, "isoformat"):
+            index = index.isoformat()
+
+        return f"<{self.__class__.__name__} ({index}) {lines}>"
+
+    def set_buffer(self, bf: int):
+        self.__buffer = bf
+
+        for line in self.__lines.values():
+            line.set_buffer(bf)
+
+    def __getitem__(self, line: str):
+        try:
+            return self.__lines.get(line.lower())
+
+        except:
+            msg = f"Line '{line}' non existant"
+            raise AttributeError(msg)
+
+    def __getattr__(self, line: str):
+        try:
+            return self.__lines.get(line.lower())
+
+        except:
+            msg = f"Line '{line}' non existant"
+            raise AttributeError(msg)
+
+class Asset(Data):
+
+    """
+
     * `mult` is the contract base price multiplier,
-      whenever this is declared, the data-type is 
+      whenever this is declared, the data-type is
       assumed to be futures-like.
-    
+
     * `comm` is the broker's commission per trade
 
     * `ctype` is the commission type, which are by
-      default set to "PERC" to stock-like assets (S), 
+      default set to "PERC" to stock-like assets (S),
       while "ABS" for future-like ones (F).
 
     * `slip` is the estimated mean slippage per trade.
@@ -69,105 +129,84 @@ class Asset:
       account. No difference is made between initial and
       maintenance margins.
 
-    * Inspired by both Backtesting.py and Backtrader Systems:
-      - https://github.com/kernc/backtesting.py.git
-      - https://github.com/mementum/backtrader
-
-    * Different from backtesting.py, we treat the basic Data 
-      Structure as having all properties of an asset, besides 
-      that we assume the lines can be accessed by the indexation 
-      of zero-reference (i.e. index 0 access the current point, 
-      not the first) 
-
     """
 
-    def __init__(
-        self, 
-        ticker: str, 
-        dataframe: pd.DataFrame
-    ):
+    def __init__(self, ticker: str, data: pd.DataFrame):
 
         self.__ticker = ticker
-        self.__df = dataframe
+        super().__init__(data=data)
 
-        idx = self.__df.index.copy()
-        
-        self.__lines = {
-            line: Line(array = vals, line = line) \
-                for line, vals in self.__df.items()
-        }
-        
-        self.__lines["__index"] = idx
+        self.set_properties()
 
-        ## << Implement functions to verify schema conformation >> ##
+        ## << Implement functions to verify schema conformation!! >> ##
 
     def set_properties(
-        self, 
-        comm: Number,
-        mult: Optional[Number] = None,
+        self,
+        comm: Optional[Number] = 0,
         ctype: Optional[str] = None,
-         
+        mult: Optional[Number] = None,
     ):
         self.__comm = comm
 
         if mult is not None:
             self.__mult = mult
             self.__stocklike = False
-            self.__ctype = _COMMTYPE["F"]
+            self.__ctype = ctype or _COMMTYPE["F"]
 
         else:
             self.__mult = 1
             self.__stocklike = True
-            self.__ctype = _COMMTYPE["S"]
+            self.__ctype = ctype or _COMMTYPE["S"]
 
-    def adjust(self):
-        
-        """
-        * Function that adjust stock data to
-          account for dividends and splits.
+    @property
+    def ticker(self):
 
-        * Assumes OHLC data is raw, i.e. without
-          any type of adjustment, and assumes that
-          Data holds adjreturns Line.  
-        
-        """
+        return self.__ticker
 
-        pass
+    @property
+    def mult(self):
 
-    def _set_buffer(self, bf: int):
-        self.__buffer = bf
+        return self.__mult
 
-        for line in self.__lines.values():
-            line.set_buffer(bf)
+    @property
+    def stocklike(self):
 
-    def __repr__(self):
-        idx = min(self.__buffer, len(self.__df) - 1)
-        
-        dct = {k:v for k, v in self.__df.iloc[idx].items()}
-        lines = ", ".join("{}={:.2f}".format(k,v) for k, v in dct.items())
+        return self.__stocklike
 
-        index = self.__lines["__index"][idx]
-        
-        if hasattr(index , "date"): 
-            index = index.date()
-        
-        if hasattr(index, "isoformat"):
-            index = index.isoformat()
-        
-        return f"<Data ({index}) {lines}>"
+    @property
+    def comm(self):
 
-    def __getitem__(self, line: str):
-        try:
-            return self.__lines.get(line)
-        
-        except:
-            msg = f"Line '{line}' non existant"
-            raise AttributeError(msg)
+        return self.__comm
 
-    def __getattr__(self, line: str):
-        try:
-            return self.__lines.get(line)
-        
-        except:
-            msg = f"Line '{line}' non existant"
-            raise AttributeError(msg)
+    @property
+    def ctype(self):
+
+        return self.__ctype
+
+
+class Hedge(Asset):
+
+    """
+    Explain the Class...
+
+    """
+
+    def __init__(
+        self,
+        ticker: str,
+        data: pd.DataFrame,
+        hmethod: str = _HMETHOD["E"],
+    ):
+
+        super().__init__(
+            self,
+            ticker=ticker,
+            data=data,
+        )
+
+        self.__hmethod = hmethod
+
+    @property
+    def hmethod(self):
+
+        return self.__hmethod

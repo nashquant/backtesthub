@@ -17,6 +17,9 @@ _COMMTYPE = dict(
 _METHOD = dict(
     V = "VOLATILITY",
     F = "FIXED",
-    H = "HEDGE",
-    B = "BETA HEDGE",
+)
+
+_HMETHOD = dict(
+    E = "EXPOSITION",
+    B = "BETA",
 )
