@@ -7,7 +7,7 @@ __Backtest Hub__ provides a resourceful toolkit to run backtest simulations __qu
 3) Price-like or Rates-like, or even 
 4) Single-stock-like or Multi-stock-like 
 
-Instead of having multiple accessory features, such as etl/analytics/optimizing, backtest-hub focuses on it's core mission, which is to provide users with an efficient backtest engine, letting to the user the decision of which sattelites systems fits better for their own goals. The project targets professional quantitative/systematic traders and developers, but, literally, anyone interested in it is welcome to try, support and criticize (constructively, I hope)!
+Instead of providing multiple accessory features, such as etl/analytics/optimizing, backtest-hub focuses on it's core mission, which is to provide users with an efficient backtest engine, letting to the user the decision of which sattelites systems fits better for their own goals. The project targets professional quantitative/systematic traders and developers, but, literally, anyone interested in it is welcome to try, support and criticize (constructively, I hope)!
 
 The purpose of the project is to open source the development of a more advanced framework to compute backtests and portfolios than the ones obtained by similar projects such as backtrader, backtesting.py and zipline. 
 
