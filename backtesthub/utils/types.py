@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 
 from numbers import Number
-from warnings import warn
 from datetime import date, datetime
 from typing import Optional, Sequence
-from .config import _HMETHOD, _COMMTYPE
+
 from .checks import derive_asset
+from .config import _HMETHOD, _COMMTYPE, _SCHEMA
 
 
 class Line(np.ndarray):
@@ -32,7 +32,11 @@ class Line(np.ndarray):
         return obj
 
     def __getitem__(self, key: int):
-        key += self.buffer
+
+        if not hasattr(self, "__buffer"):
+            self.__buffer = 0
+
+        key += self.__buffer
         if key < 0:
             msg = "Key l.t zero"
             raise KeyError(msg)
@@ -45,10 +49,6 @@ class Line(np.ndarray):
 
     def __set_buffer(self, bf: int):
         self.__buffer = bf
-
-    @property
-    def buffer(self) -> int:
-        return self.__buffer
 
 
 class Data:
@@ -164,10 +164,45 @@ class Data:
     def index(self) -> Line:
         return self.__lines["__index"]
 
+    @property
+    def schema(self) -> Sequence[str]:
+        lines = self.__lines.keys()
+        return [l for l in lines if not l.startswith("__")]
 
-class Asset(Data):
+
+class Base(Data):
 
     """
+
+    This class is a `Data` child.
+
+    It is intended to hold assets' data 
+    that are not supposed to be used for 
+    trading purposes, but rather assets
+    that are used to generate signals,
+    calculate currency conversion, and
+    stuff like that.
+
+    Therefore there's no need to define
+    properties such as mult, comm, etc.
+
+    """
+
+    def __init__(self, ticker: str, data: pd.DataFrame):
+        super().__init__(data=data)
+        self.__ticker = ticker
+        self.__signal = None
+
+    @property
+    def ticker(self) -> str:
+        return self.__ticker
+
+
+class Asset(Base):
+
+    """
+
+    Asset Extends `Base` including features such as:
 
     * `mult` is the contract base price multiplier,
       whenever this is declared, the data-type is
@@ -190,8 +225,7 @@ class Asset(Data):
     """
 
     def __init__(self, ticker: str, data: pd.DataFrame):
-        super().__init__(data=data)
-        self.__ticker = ticker
+        super().__init__(data=data, ticker=ticker)
 
         self.__asset: str = None
         self.__maturity: date = None
@@ -202,8 +236,8 @@ class Asset(Data):
         self,
         comm: Number = 0,
         margin: Number = 1,
-        ctype: Optional[str] = None,
         mult: Optional[Number] = None,
+        currency: str = "BRL",
     ):
         if comm >= 0:
             self.__comm = comm
@@ -222,18 +256,14 @@ class Asset(Data):
             self.__margin = margin
             self.__stocklike = True
             self.__asset = self.__ticker
-            self.__ctype = ctype or _COMMTYPE["S"]
+            self.__ctype = _COMMTYPE["S"]
 
         else:
             self.__mult = mult
             self.__margin = margin
             self.__stocklike = False
             self.__asset = derive_asset(self.__ticker)
-            self.__ctype = ctype or _COMMTYPE["F"]
-
-    @property
-    def ticker(self) -> str:
-        return self.__ticker
+            self.__ctype = _COMMTYPE["F"]
 
     @property
     def asset(self) -> str:
@@ -267,7 +297,17 @@ class Asset(Data):
 class Hedge(Asset):
 
     """
-    Explain the Class...
+    Hedge Asset have their own sizing 
+    rules, which are dependent on the
+    assets that compose the "long" side,
+    the hedging method (`hmethod`) and 
+    the hedging asset.
+
+    They are treated separately to
+    highlight the difference, making
+    possible to rapidly identify whether
+    a given data structure is an `Asset` 
+    or `Hedge` instance.
 
     """
 
@@ -287,5 +327,4 @@ class Hedge(Asset):
 
     @property
     def hmethod(self):
-
         return self.__hmethod

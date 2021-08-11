@@ -2,32 +2,26 @@
 from typing import Dict
 from numbers import Number
 
-from order import Order
-from position import Position
+from .order import Order
+from .position import Position
 
 
 class Broker:
     def __init__(
-        self,
-        buffer: int = 0,
-        cash: Number = float("10e6"),
+        self, 
+        cash: Number = float("10e6"), 
+        curr: str = "BRL"
     ):
+        self.__cash = [cash]
+        self.__equity = [cash]
+        self.__quotas = [1000]
 
-        self.__cash = [
-            cash,
-        ] * (buffer + 1)
-        self.__equity = [
-            cash,
-        ] * (buffer + 1)
-        self.__quotas = [
-            1000,
-        ] * (buffer + 1)
+        self.__curr = curr
 
         self.__orders: Dict[str, Order] = {}
         self.__positions: Dict[str, Position] = {}
 
     def __repr__(self):
-
         kls = self.__class__.__name__
         pos = {k: v.size for k, v in self.__positions.items()}
         ord = {k: v.size for k, v in self.__orders.items()}
@@ -45,50 +39,27 @@ class Broker:
         size: float,
         limit: float,
     ):
-
         order = Order(ticker, size, limit)
-
-        self.__orders.append(order)
+        self.__orders.update({ticker: order})
 
     def __process_orders(self):
         pass
 
     def next(self):
-
         self.__process_orders()
 
     @property
     def equity(self):
-
-        """
-        Total Equity Balance
-        """
-
         return self.__equity
 
     @property
     def cash(self):
-
-        """
-        Total Cash Balance
-        """
-
         return self.__cash
 
     @property
     def position(self):
-
-        """
-        Current Positions
-        """
-
         return self.__positions
 
     @property
     def orders(self):
-
-        """
-        Current Orders
-        """
-
         return self.__orders

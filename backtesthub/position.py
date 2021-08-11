@@ -1,10 +1,9 @@
 #! /usr/bin/env python3
 
-from numbers import Number
 from typing import Union, Optional
 
-from utils.config import _METHOD
-from utils.types import Asset, Hedge
+from .utils.config import _METHOD
+from .utils.types import Asset, Hedge
 
 class Position:
 
@@ -17,7 +16,6 @@ class Position:
         data: Union[Asset, Hedge],
         method: Optional[str] = "V"
     ):
-
         if method not in _METHOD:
             msg = "Method not recognized"
             raise NotImplementedError(msg)
@@ -30,6 +28,7 @@ class Position:
             
         self.__data = data
         self.__ticker = data.ticker
+        self.__stocklike = data.stocklike
         
         self.__size = None
         self.__signal = None
@@ -37,7 +36,6 @@ class Position:
         self.__avgprc = None
 
     def __repr__(self):
-
         kls = self.__class__.__name__
         tck = self.__data.ticker
         sze = self.__size or ""
@@ -59,10 +57,9 @@ class Position:
 
         self.__get_signal()
         self.__get_target()
-
-    def executed(self, price, size):
         
-        self._
+        if not self.__stocklike:
+            self.__roll()
 
 
     def __get_signal(self):

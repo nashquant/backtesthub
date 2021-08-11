@@ -1,6 +1,15 @@
 #! /usr/bin/env python3
 
+_CASH = float("10e6")
+
 _META = dict()
+
+_CURR = (
+    "BRL",
+    "USD",
+    "MEX",
+    "EUR",
+)
 
 _MATURITIES = dict(
     F = "jan", 

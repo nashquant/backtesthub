@@ -4,8 +4,8 @@ from datetime import date
 from numbers import Number
 
 from typing import Optional, Union
-from utils.types import Asset, Hedge
-from utils.config import _OTYPE, _STATUS
+from .utils.types import Asset, Hedge
+from .utils.config import _OTYPE, _STATUS
 
 class Order:
 
@@ -16,7 +16,6 @@ class Order:
         limit: Optional[Number] = None, 
         status: Optional[str] = _STATUS["W"],
     ):
-
         self.__data = data
         self.__size = size
         self.__limit = limit
@@ -37,11 +36,10 @@ class Order:
             msg = "Couldn't identify order type"
             raise NotImplementedError(msg)
 
-        self.__issdt = self.__data.index[0]
         self.__ticker = data.ticker
+        self.__issdt = self.dt
 
     def __repr__(self):
-
         kls = self.__class__.__name__
         tck = self.__ticker
         typ = self.__otype
@@ -53,20 +51,24 @@ class Order:
 
         return log
 
+    def __log(self, txt: str):
+        msg = f"({self.dt.isoformat()}), {txt}"
+        print(msg)
+
     @property
     def issdt(self) -> date:
-
-        """ """
         return self.__issdt
 
     @property
     def size(self) -> Number:
-
-        """ """
         return self.__size
 
     @property
     def ticker(self) -> str:
-
-        """"""
         return self.__ticker
+
+    @property
+    def dt(self) -> date:
+        return self.__data.index[0]
+
+    

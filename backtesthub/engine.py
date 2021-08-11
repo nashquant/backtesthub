@@ -1,17 +1,16 @@
 #! /usr/bin/env python3
 
-import numpy as np
 import pandas as pd
 
 from numbers import Number
 from datetime import date, datetime
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Sequence, Any
 
 from .broker import Broker
 from .strategy import Strategy
-from .utils.types import Asset
-from .utils.config import _SCHEMA
-
+from .pipeline import Pipeline
+from .utils.types import Line, Base, Asset, Hedge
+from .utils.config import _SCHEMA, _CASH, _CURR
 
 
 class Engine:
@@ -19,14 +18,14 @@ class Engine:
     """
     __INTRO__
 
-    * This object is responsible for orchestrating all 
-      complementary objects (Strategy, Broker, Position, ...) 
-      in order to properly run the simulation. 
-      
-    * Lots of features such as intraday operations, multi-calendar 
+    * This object is responsible for orchestrating all
+      complementary objects (Strategy, Broker, Position, ...)
+      in order to properly run the simulation.
+
+    * Lots of features such as intraday operations, multi-calendar
       runs, live trading, etc. are still pending development.
 
-    __KWARGS__ 
+    __KWARGS__
 
     * `datas` is a sequence of `pd.DataFrame` with columns:
         `Open`, `High`, `Low`, `Close`, (optionally) `Volume`.
@@ -53,86 +52,196 @@ class Engine:
     def __init__(
         self,
         strategy: Strategy,
-        sdate: Union[date, datetime],
-        edate: Union[date, datetime],
-        cash: float = float("10e6"),
+        sdate: date,
+        edate: date,
+        cash: float = _CASH,
+        multi: bool = False,
+        curr: str = "BRL",
     ):
-        
         self.__strategy = strategy
         self.__sdate = sdate
         self.__edate = edate
         self.__cash = cash
-        
-        self.__datas = {}
+        self.__multi = multi
+        self.__curr = curr
+
+        self.__bases = {"A": None, "H": None}
+
+        self.__assets = {}
+        self.__hedges = {}
+        self.__currs = {}
         self.__holidays = []
+
+        self.__type_check()
+
+        self.__broker = Broker(
+            cash=self.__cash,
+            curr=self.__curr,
+        )
+
+        self.__index = Line(
+            array = pd.bdate_range(
+                start=self.__sdate,
+                end=self.__edate,
+                holidays=self.__holidays,
+            )
+        )
+
+    def addBase(self, ticker: str, data: pd.DataFrame, hedge: bool = False):
+        """
+        Only one base allowed per side.
+        """
+
+        if not hedge:
+            asset = Base(
+                data=data,
+                ticker=ticker,
+            )
+
+            self.__bases.update({"A": asset})
+
+        else:
+            hedge = Base(
+                data=data,
+                ticker=ticker,
+            )
+
+            self.__bases.update({"H": hedge})
+
+    def addCurrency(
+        self,
+        curr_base: str,
+        curr_target: str,
+        data: pd.DataFrame,
+    ):
+        """
+        Example:
+        curr_base = "USD"
+        curr_target = "BRL"
+        curr = "USDBRL"
+        """
+
+        if curr_base == curr_target:
+            return
+        if curr_base not in _CURR:
+            return
+        if curr_target not in _CURR:
+            return
+
+        curr = f"{curr_base}{curr_target}"
+        base = Base(
+            ticker=curr,
+            data=data,
+        )
+
+        self.__currs.update({curr: base})
+
+    def addAsset(
+        self,
+        ticker: str,
+        data: pd.DataFrame,
+        meta: pd.DataFrame = None,
+        **comminfo: Dict[str, Any],
+    ):
+        asset = Asset(
+            data=data,
+            ticker=ticker,
+        )
+
+        asset.config(**comminfo)
+
+        if meta is not None:
+            pass
+
+        self.__assets.update({ticker: asset})
+
+    def addHedge(
+        self,
+        ticker: str,
+        hmethod: str,
+        data: pd.DataFrame,
+        meta: pd.DataFrame = None,
+        **comminfo: Dict[str, Any],
+    ):
+        hedge = Hedge(
+            data=data,
+            ticker=ticker,
+            hmethod=hmethod,
+        )
+
+        hedge.config(**comminfo)
+
+        if meta is not None:
+            pass
+
+        self.__hedges.update({ticker: hedge})
+
+    def init(self):
+
+        self.__build_pipeline()
+        self.__pipeline.init()
+
+        self.__strategy.init()
+
+    def run(self) -> Dict[str, Number]:
+
+        if not {**self.__bases, **self.__assets}:
+            msg = "No Data was provided!!"
+            raise ValueError(msg)
+
+        for idx in self.index:
+
+            universe = self.__pipeline.run()
+
+            self.__broker.next()
+            self.__strategy.next()
+
+    def __build_pipeline(self):
+
+        if self.__multiasset:
+
+            self.__pipeline = Pipeline(assets=self.__assets)
+
+    def __type_check(self):
 
         if not (issubclass(self.__strategy, Strategy)):
             msg = "Arg `strategy` must be a Strategy sub-type"
             raise TypeError(msg)
 
-        self.__broker = Broker(
-            datas=self.__datas,
-            cash=self.__cash,
-        )
-
-    def addData(
-        self, 
-        ticker: str, 
-        data: pd.DataFrame, 
-        **comminfo: Dict[str, Any]
-    ):
-        
-        asset = Asset(
-            ticker = ticker,
-            data = data
-        )
-
-        ### << Check comminfo kwargs validity >> ##
-
-        asset.config(**comminfo)
-
-    def __log(self, txt: str):
-
-        msg = f"({self.dt.isoformat()}), {txt}"
-
-        print(msg)
-
-    def __set_buffer(self):
-
-        pass
-
-    def run(self) -> Dict[str, Number]:
-
-        if not self.__datas:
-            msg = "No Data was inputed"
+        if not self.__curr in _CURR:
+            msg = "Unknown `currency` requested"
             raise ValueError(msg)
 
-        broker = self.__broker
-        strategy = self.__strategy
+        if isinstance(self.__sdate, datetime):
+            self.__sdate = self.__sdate.date()
 
-        strategy.init()
+        if not isinstance(self.__sdate, date):
+            msg = "Arg `sdate` must be a date"
+            raise TypeError(msg)
 
-        ## <<<< Implement buffer handling! >>>> ##
+        if isinstance(self.__edate, datetime):
+            self.__edate = self.__edate.date()
 
-        self.__set_buffer()
+        if not isinstance(self.__edate, date):
+            msg = "Arg `edate` must be a date"
+            raise TypeError(msg)
 
-        ## <<<< Implement "logging lib" error tracing! >>>> ##
-        ## <<<< Implement index by sdate, edate, holidays >>>> ##
+        if not isinstance(self.__holidays, Sequence):
+            msg = "Arg `holidays` must be a Sequence"
+            raise TypeError(msg)
 
-        while True:
+        if not all(isinstance(dt, date) for dt in self.__holidays):
+            msg = "Sequence `holidays` must have date scalars"
+            raise TypeError(msg)
 
-            for ticker in self.__datas:
+    @property
+    def __datas(self):
+        return {**self.__assets, **self.__hedges}
 
-                data = self.__datas[ticker]
-                data._set_buffer(self.__buffer)
+    @property
+    def index(self):
+        return self.__index
 
-                broker.next()
-                strategy.next()
-
-                self.__buffer += 1
-
-    
     @property
     def dt(self):
-        pass
-        
+        return self.__index[0]
