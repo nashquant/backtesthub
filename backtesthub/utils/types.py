@@ -4,8 +4,11 @@ import numpy as np
 import pandas as pd
 
 from numbers import Number
+from warnings import warn
+from datetime import date, datetime
 from typing import Optional, Sequence
 from .config import _HMETHOD, _COMMTYPE
+from .checks import derive_asset
 
 
 class Line(np.ndarray):
@@ -13,25 +16,39 @@ class Line(np.ndarray):
     """
     Numpy Ndarray Based Concept of Lines
 
+    To get a better sense about what is going on, refer to:
+
+    - https://numpy.org/doc/stable/user/basics.subclassing.html
+    - https://github.com/mementum/backtrader/blob/master/backtrader/linebuffer.py
+
     """
 
     def __new__(cls, array: Sequence):
+        arr = np.asarray(array)
 
-        obj = np.asarray(array).view(cls)
-        obj.array = np.asarray(array)
+        obj = arr.view(cls)
+        obj.array = arr
 
         return obj
 
-    def set_buffer(self, bf: int):
+    def __getitem__(self, key: int):
+        key += self.buffer
+        if key < 0:
+            msg = "Key l.t zero"
+            raise KeyError(msg)
+
+        elif key >= len(self):
+            msg = "Key g.t.e length"
+            raise KeyError(msg)
+
+        return super().__getitem__(key)
+
+    def __set_buffer(self, bf: int):
         self.__buffer = bf
 
-    def __getitem__(self, key):
-        try:
-            bkey = key + self.__buffer
-            return super().__getitem__(bkey)
-
-        except KeyError:
-            return super().__getitem__(key)
+    @property
+    def buffer(self) -> int:
+        return self.__buffer
 
 
 class Data:
@@ -47,30 +64,46 @@ class Data:
       - https://github.com/mementum/backtrader
 
     * Different from backtesting.py, we treat the basic Data
-      Structure as having all properties of an asset, besides
-      that we assume the lines can be accessed by the indexation
-      of zero-reference (i.e. index 0 access the current point,
-      not the first)
+      Structure as having all properties of an asset, such as
+      ticker, commission structure (type, value), margin req.
+      and identifying booleans to indicate things such as
+      whether the asset is a stock or a future, whether its
+      OHLC data is given in [default] price or rates.
+
+    * Note: The framework still doesn't accept timeframes different
+      than `daily`... In future updates we'll tackle this issue.
 
     """
 
     def __init__(self, data: pd.DataFrame):
+        if not isinstance(data, pd.DataFrame):
+            msg = "Data must be `pd.DataFrame`"
+            raise NotImplementedError(msg)
+
+        _typ = data.index.inferred_type
+        _mon = data.index.is_monotonic_decreasing
+
+        if _typ == "datetime64":
+            data.index = data.index.date
+
+        elif not _typ == "date":
+            msg = "Index must be `date` or `datetime`"
+            raise TypeError(msg)
+
+        if _mon:
+            data.sort_index(ascending=True, inplace=True)
 
         self.__df = data
         self.__lines = {}
 
-        idx = self.__df.index.copy()
-        self.__lines["__index"] = Line(array=idx)
-        self.__lines.update(
-            {l.lower(): Line(array=arr) for l, arr in self.__df.items()}
-        )
+        self.__lines["__index"] = Line(array=data.index)
+        lines = {l.lower(): Line(arr) for l, arr in data.items()}
 
-        self.set_buffer(bf=0)
+        self.__lines.update(lines), self.__reset()
 
     def __repr__(self):
-
         maxlen = len(self.__df) - 1
-        i = min(self.__buffer, maxlen)
+        i = min(self.buffer, maxlen)
 
         index = self.__lines["__index"][i]
         dct = {k: v for k, v in self.__df.iloc[i].items()}
@@ -82,13 +115,10 @@ class Data:
         if hasattr(index, "isoformat"):
             index = index.isoformat()
 
-        return f"<{self.__class__.__name__} ({index}) {lines}>"
-
-    def set_buffer(self, bf: int):
-        self.__buffer = bf
-
-        for line in self.__lines.values():
-            line.set_buffer(bf)
+        if self.__class__.__name__ == "Data":
+            return f"<{self.__class__.__name__} " f"({index}) {lines}>"
+        else:
+            return f"<{self.__class__.__name__} " f"{self.ticker} ({index}) {lines}>"
 
     def __getitem__(self, line: str):
         try:
@@ -105,6 +135,34 @@ class Data:
         except:
             msg = f"Line '{line}' non existant"
             raise AttributeError(msg)
+
+    def __len__(self):
+        return len(self.__df)
+
+    def __forward(self, step: int = 1):
+        self.__buffer = min(
+            self.__buffer + step,
+            len(self) - 1,
+        )
+
+        self.__set_line_buffer()
+
+    def __reset(self, origin: int = 0):
+        self.__buffer = min(max(0, origin), len(self) - 1)
+
+        self.__set_line_buffer()
+
+    def __set_line_buffer(self):
+        for line in self.__lines.values():
+            line._Line__set_buffer(self.__buffer)
+
+    @property
+    def buffer(self) -> int:
+        return self.__buffer
+
+    @property
+    def index(self) -> Line:
+        return self.__lines["__index"]
 
 
 class Asset(Data):
@@ -131,18 +189,14 @@ class Asset(Data):
 
     """
 
-    def __init__(
-        self, 
-        ticker: str,
-        data: pd.DataFrame
-    ):
-
-        self.__ticker = ticker
+    def __init__(self, ticker: str, data: pd.DataFrame):
         super().__init__(data=data)
+        self.__ticker = ticker
+
+        self.__asset: str = None
+        self.__maturity: date = None
 
         self.config()
-
-        ## << Implement functions to verify schema conformation!! >> ##
 
     def config(
         self,
@@ -151,79 +205,63 @@ class Asset(Data):
         ctype: Optional[str] = None,
         mult: Optional[Number] = None,
     ):
-        
-        
-        if comm >=0:
+        if comm >= 0:
             self.__comm = comm
         else:
             msg = "Invalid value for comm"
             raise ValueError(msg)
-        
-        if margin >=0:
+
+        if margin >= 0:
             self.__margin = margin
         else:
             msg = "Invalid value for margin"
             raise ValueError(msg)
 
-        if mult is not None:
-            self.__mult = mult
-            self.__margin = margin
-            self.__stocklike = False
-            self.__asset = self.__ticker[:-3]
-            self.__ctype = ctype or _COMMTYPE["F"]
-
-        else:
+        if mult is None:
             self.__mult = 1
             self.__margin = margin
             self.__stocklike = True
             self.__asset = self.__ticker
             self.__ctype = ctype or _COMMTYPE["S"]
 
-    @property
-    def ticker(self):
+        else:
+            self.__mult = mult
+            self.__margin = margin
+            self.__stocklike = False
+            self.__asset = derive_asset(self.__ticker)
+            self.__ctype = ctype or _COMMTYPE["F"]
 
+    @property
+    def ticker(self) -> str:
         return self.__ticker
 
     @property
-    def asset(self):
-
-        """
-        For futures-like assets,
-        ticker = "{ASSET}{CODE}"
-        Where CODE is something
-        like "Z20", meaning that
-        the maturity was at the
-        month "Z" (december) of
-        the year "2020".   
-        """
-
+    def asset(self) -> str:
         return self.__asset
 
     @property
-    def mult(self):
-
+    def mult(self) -> Number:
         return self.__mult
 
     @property
-    def stocklike(self):
-
+    def stocklike(self) -> bool:
         return self.__stocklike
 
     @property
-    def comm(self):
-
+    def comm(self) -> Number:
         return self.__comm
 
     @property
-    def ctype(self):
-
+    def ctype(self) -> str:
         return self.__ctype
 
     @property
-    def leverage(self):
+    def leverage(self) -> Number:
+        return 1 / self.__margin
 
-
-        return 1/self.__margin
+    @property
+    def maturity(self) -> date:
+        return self.__maturity
 
 
 class Hedge(Asset):
@@ -239,7 +277,6 @@ class Hedge(Asset):
         data: pd.DataFrame,
         hmethod: str = _HMETHOD["E"],
     ):
-
         super().__init__(
             self,
             ticker=ticker,

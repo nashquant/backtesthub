@@ -4,17 +4,14 @@ import numpy as np
 import pandas as pd
 
 from numbers import Number
-from warnings import filterwarnings
 from datetime import date, datetime
-from typing import List, Dict, Union, Sequence
+from typing import List, Dict, Union, Any
 
 from .broker import Broker
 from .strategy import Strategy
+from .utils.types import Asset
 from .utils.config import _SCHEMA
-from .utils.types import Asset, Line
 
-
-filterwarnings("ignore")
 
 
 class Engine:
@@ -60,17 +57,12 @@ class Engine:
         edate: Union[date, datetime],
         cash: float = float("10e6"),
     ):
-
-        ## <<SET VARIABLES>> ##
-
+        
         self.__strategy = strategy
         self.__sdate = sdate
         self.__edate = edate
         self.__cash = cash
-
-        self.__ohlc: List[str] = _SCHEMA["OHLC"]
-        self.__ohlcv: List[str] = _SCHEMA["OHLCV"]
-
+        
         self.__datas = {}
         self.__holidays = []
 
@@ -87,13 +79,17 @@ class Engine:
         self, 
         ticker: str, 
         data: pd.DataFrame, 
-        **comminfo
+        **comminfo: Dict[str, Any]
     ):
         
         asset = Asset(
             ticker = ticker,
-            
+            data = data
         )
+
+        ### << Check comminfo kwargs validity >> ##
+
+        asset.config(**comminfo)
 
     def __log(self, txt: str):
 

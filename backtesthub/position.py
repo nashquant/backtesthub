@@ -1,47 +1,55 @@
 #! /usr/bin/env python3
 
 from numbers import Number
-from typing import Union
-from warnings import filterwarnings
-from dataclasses import dataclass, InitVar, field
+from typing import Union, Optional
 
 from utils.config import _METHOD
 from utils.types import Asset, Hedge
 
-filterwarnings('ignore')
-
-@dataclass
 class Position:
 
     """
-    
-    * `Position` data structure provides position 
-      management and sizing methods/attributes.
-
-    * `__ticker` differs from `asset` for futures-like
-      
        
     """
 
-    data: Union[Asset, Hedge] = field(compare = False, repr = False)
-    
-    __size: Number = field(init = False, default = 0, compare = False, repr = True)
-    __signal: Number = field(init = False, default = 0, compare = False, repr = True)
-    __target: Number = field(init = False, default = 0, compare = False, repr = False)
-    __method: str = field(init = False, default = _METHOD["V"], compare = False, repr = False)
-
-    def config(
+    def __init__(
         self,
-        method: str
+        data: Union[Asset, Hedge],
+        method: Optional[str] = "V"
     ):
 
         if method not in _METHOD:
             msg = "Method not recognized"
             raise NotImplementedError(msg)
 
-        self.__method = method
-    
-    def update(self, ticker):
+        self.__method = _METHOD[method]
+
+        if not isinstance(data, (Asset, Hedge)):
+            msg = "Invalid Data Type"
+            raise TypeError(msg)
+            
+        self.__data = data
+        self.__ticker = data.ticker
+        
+        self.__size = None
+        self.__signal = None
+        self.__target = None
+        self.__avgprc = None
+
+    def __repr__(self):
+
+        kls = self.__class__.__name__
+        tck = self.__data.ticker
+        sze = self.__size or ""
+        sig = self.__signal or ""
+        avg = self.__avgprc or ""
+        tgt = self.__target or ""
+
+        log = f"{kls}(Ticker: {tck}, Size: {sze}, Signal: {sig}, Avg Prc: {avg}, Target: {tgt})"
+
+        return log
+
+    def update(self):
 
         """
 
@@ -49,18 +57,19 @@ class Position:
         
         """
 
+        self.__get_signal()
+        self.__get_target()
+
+    def executed(self, price, size):
+        
+        self._
+
+
+    def __get_signal(self):
         pass
 
-    def data(self) -> Union[Asset, Hedge]:
-
-        """
-
-        Expose `self.__data` to client
-        
-        """
-
-        return self.__data
-
+    def __get_target(self):
+        pass
     
     @property
     def target(self) -> float:
@@ -94,3 +103,14 @@ class Position:
         """
         
         return self.__signal
+
+    @property
+    def ticker(self) -> float:
+        
+        """
+
+        Expose `self.__ticker` to client
+        
+        """
+        
+        return self.__ticker

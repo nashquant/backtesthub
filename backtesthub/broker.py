@@ -1,33 +1,43 @@
 #! /usr/bin/env python3
-
-from collections import deque
-
+from typing import Dict
 from numbers import Number
-from warnings import filterwarnings
-from typing import List, Dict, Optional
-from dataclasses import dataclass, field
 
-from .utils.types import *
-from .order import Order
-from .position import Position
+from order import Order
+from position import Position
 
-filterwarnings("ignore")
 
-@dataclass
 class Broker:
+    def __init__(
+        self,
+        buffer: int = 0,
+        cash: Number = float("10e6"),
+    ):
 
-    __cash: Number = field(default = {}, compare = True, repr = True)
-    __equity: Number = field(default = {}, compare = True, repr = True)
-    __orders: List = field(default = [], compare = True, repr = True)
-    __datas: Dict[str, Asset] = field(default = {}, compare = False, repr = False)
-    __positions: Dict[str, Position] = field(default = {}, compare = True, repr = True)
+        self.__cash = [
+            cash,
+        ] * (buffer + 1)
+        self.__equity = [
+            cash,
+        ] * (buffer + 1)
+        self.__quotas = [
+            1000,
+        ] * (buffer + 1)
 
-    def __init__(self, **kwargs):
+        self.__orders: Dict[str, Order] = {}
+        self.__positions: Dict[str, Position] = {}
 
-        self.__cash = kwargs.get('cash')
-        self.__equity = kwargs.get('cash')
-        self.__datas = kwargs.get('datas')
+    def __repr__(self):
 
+        kls = self.__class__.__name__
+        pos = {k: v.size for k, v in self.__positions.items()}
+        ord = {k: v.size for k, v in self.__orders.items()}
+
+        csh = self.__cash[-1]
+        eqt = self.__equity[-1]
+
+        log = f"{kls}(Cash: {csh}, Equity: {eqt}, Positions: {pos}, Orders: {ord})"
+
+        return log
 
     def order(
         self,
@@ -36,21 +46,16 @@ class Broker:
         limit: float,
     ):
 
-        order = Order( 
-            ticker, 
-            size, 
-            limit
-        )
-        
+        order = Order(ticker, size, limit)
+
         self.__orders.append(order)
 
     def __process_orders(self):
         pass
 
     def next(self):
-            
-        self.__process_orders()
 
+        self.__process_orders()
 
     @property
     def equity(self):
@@ -60,7 +65,7 @@ class Broker:
         """
 
         return self.__equity
-    
+
     @property
     def cash(self):
 
@@ -78,7 +83,7 @@ class Broker:
         """
 
         return self.__positions
-    
+
     @property
     def orders(self):
 
@@ -87,6 +92,3 @@ class Broker:
         """
 
         return self.__orders
-    
-    
-
