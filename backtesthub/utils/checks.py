@@ -1,4 +1,18 @@
+from typing import Any, Dict, Sequence
 from .config import _MATURITIES
+
+
+def derive_params(args: Sequence[Any]) -> str:
+    """
+    Stringfy `*args` in order to enable
+    a standardized name for indicators.
+
+    E.g. func = SMACross, args = (10, 200)
+    Then, name = SMACross(10,200)
+
+    """
+
+    return str(list(args))[1:-1]
 
 
 def derive_asset(fticker: str) -> str:

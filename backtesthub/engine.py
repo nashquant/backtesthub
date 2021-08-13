@@ -3,7 +3,7 @@
 import pandas as pd
 
 from datetime import date, datetime
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Union
 
 from .broker import Broker
 from .strategy import Strategy
@@ -38,14 +38,18 @@ class Engine:
 
     """
 
-    def __init__(self, strategy: Strategy):
-
-        self.__strategy = strategy
+    def __init__(
+        self,
+        strategy: Strategy,
+    ):
 
         self.__bases = {
-            "A": None,
-            "H": None,
+            "base": None,
+            "hbase": None,
         }
+
+        self.__baselike = False
+        self.__hedgelike = False
 
         self.__assets = {}
         self.__hedges = {}
@@ -58,23 +62,26 @@ class Engine:
         self.__curr = _DEFAULT_CURRENCY
         self.__cash = _DEFAULT_CASH
 
-        self.__args_validation()
-
-        self.__broker = Broker(
+        self.__broker: Broker = Broker(
             cash=self.__cash,
             curr=self.__curr,
         )
 
-        self.__strategy.addBroker(
-            self,
+        self.__strategy: Strategy = strategy(
             broker=self.__broker,
         )
 
-        self.__index = pd.bdate_range(
-            start=self.__sdate,
-            end=self.__edate,
-            holidays=self.__holidays,
-        ).date
+        self.__args_validation()
+
+        self.__index: Sequence[date] = tuple(
+            pd.bdate_range(
+                start=self.__sdate,
+                end=self.__edate,
+                holidays=self.__holidays,
+            ).date
+        )
+
+        pass
 
     def run(self) -> pd.DataFrame:
         self.__pre_run()
@@ -99,15 +106,15 @@ class Engine:
         ones
 
         PS: Only one base allowed per side.
-        "A": "Asset" Side
-        "H": "Hedge" Side
+        "base": "Asset" Side
+        "hbase": "Hedge" Side
 
         """
 
         base = Base(
             ticker=ticker,
             data=data,
-            index = self.index,
+            index=self.index,
         )
 
         if ticker.upper() in _PAIRS:
@@ -122,12 +129,14 @@ class Engine:
         if main:
             if not hedge:
                 self.__bases.update(
-                    {"A": base},
+                    {"base": base},
                 )
+                self.__baselike = True
             else:
                 self.__bases.update(
-                    {"H": base},
+                    {"hbase": base},
                 )
+                self.__hedgelike = True
 
     def add_asset(
         self,
@@ -138,7 +147,7 @@ class Engine:
         asset = Asset(
             data=data,
             ticker=ticker,
-            index = self.index,
+            index=self.index,
         )
 
         if commkwargs:
@@ -161,7 +170,7 @@ class Engine:
             data=data,
             ticker=ticker,
             hmethod=hmethod,
-            index = self.index,
+            index=self.index,
         )
 
         if commkwargs:
@@ -173,9 +182,17 @@ class Engine:
             {ticker: hedge},
         )
 
+        self.__hedgelike = True
+
+    def add_meta(
+        self,
+        asset: str,
+        data: pd.DataFrame,
+    ):
+        pass
+
     def __build_pipeline(self):
-        if hasattr(self, "__multi"):
-            pass
+        pass
 
     def __pre_run(self):
         if not self.__assets:
@@ -183,12 +200,22 @@ class Engine:
             raise ValueError(msg)
 
         self.__build_pipeline()
-        self.__strategy.init(self)
+
+        self.__strategy.datas = self.datas
+
+        if self.__baselike:
+            self.__strategy.config(
+                self.__bases["base"],
+            )
+
+        else:
+            for data in self.datas.values():
+                self.__strategy.config(data)
 
     def __args_validation(self):
 
-        if not (issubclass(self.__strategy, Strategy)):
-            msg = "Arg `strategy` must be a Strategy sub-type"
+        if not (isinstance(self.__strategy, Strategy)):
+            msg = "Arg `strategy` must be a `Strategy`"
             raise TypeError(msg)
 
         if not self.__curr in _CURR:
@@ -214,13 +241,23 @@ class Engine:
             raise TypeError(msg)
 
         if not all(isinstance(dt, date) for dt in self.__holidays):
-            msg = "Sequence `holidays` must have date scalars"
+            msg = "Sequence `holidays` must have date elements"
             raise TypeError(msg)
 
     @property
-    def index(self):
-        return tuple(self.__index)
+    def index(self) -> Sequence[date]:
+        return self.__index
 
     @property
-    def dt(self):
+    def dt(self) -> str:
         return self.__index[0].isoformat()
+
+    @property
+    def datas(self) -> Dict[str, Union[Base, Asset]]:
+        datas = {**self.__bases, **self.__assets}
+        datas = {k: v for k, v in datas.items() if v is not None}
+        return datas
+
+    @property
+    def strategy(self) -> Strategy:
+        return self.__strategy

@@ -8,52 +8,35 @@ from .order import Order
 from .broker import Broker
 from .utils.bases import *
 from .utils.config import _MODE
+from .utils.checks import derive_params
+
 
 class Strategy(metaclass=ABCMeta):
-
-    def __init__(self):
-
-        if not hasattr(self, "mode"):
-            self.mode = "V"
-
-        if self.mode not in _MODE:
-            msg = "Calculation Mode not implemented"
-            raise NotImplementedError(msg)
-        else:
-            self.__mode=_MODE[self.mode]
-        
-        self.__datas={}
-        self.__indicators={}
-
-    def addData(
-        self, 
-        data: Union[Base, Asset],
-    ):
-        pass
-
-    def addBroker(
+    def __init__(
         self,
-        broker: Broker
+        broker: Broker,
+        mode: str = _MODE["V"],
     ):
+
         self.__broker = broker
+        self.__indicators = {}
+        self.__datas = {}
+        self.__mode = mode
 
     @abstractmethod
-    def init(self):
+    def config(data: Union[Base, Asset]):
         """
-        * To initialize the strategy, override this method.
+        * To configure the strategy, override this method.
 
         * Declare indicators (with `backtesting.backtesting.Strategy.I`).
 
         * Precompute what needs to be precomputed or can be precomputed
           in a vectorized fashion before the strategy starts.
 
-        * If you extend composable strategies from `backtesting.lib`,
-
-        * make sure to call `super().init()`
         """
 
     @abstractmethod
-    def next(self):
+    def next():
         """
         * Main strategy runtime method, called as each new
           `backtesting.backtesting.Strategy.data` instance
@@ -70,8 +53,9 @@ class Strategy(metaclass=ABCMeta):
 
     def I(
         self,
-        f: Callable,
-        **params: Dict,
+        func: Callable,
+        data: Union[Base, Asset],
+        *args,
     ):
 
         """
@@ -80,41 +64,58 @@ class Strategy(metaclass=ABCMeta):
         * Inspired by Backtesting.py project:
         https://github.com/kernc/backtesting.py.git
 
-        * An indicator is just a line of values,but one that is revealed
-          gradually in `backtesting.backtesting.Strategy.next` much like
-          `backtesting.backtesting.Strategy.data` is.
-
-        * `func` is a function that returns the indicator array(s) of
-          same length as `backtesting.backtesting.Strategy.data`.
-
-        * For example, using simple moving average function from TA-Lib:
-            def init():
-                self.sma = self.I(ta.SMA, self.data.Close, p1 = self.p1, p2 = self.p2)
         """
 
-        name = params.pop("name", None)
-
-        if name is None:
-            name = f"{f.__name__}{tuple(params.items())}"
+        ticker = data.ticker
+        params = derive_params(args)
+        name = f"{func.__name__}({params})"
 
         if self.__mode == _MODE["V"]:
+
             try:
-                ind = f(**params)
+                ind = Line(func(data, *args))
             except Exception as e:
                 raise Exception(e)
 
-            if isinstance(ind, pd.DataFrame):
-                ind = ind.values.T
+        else:
+            msg = f"`Mode` {self.__mode} not available"
+            raise NotImplementedError(msg)
 
-            self.__indicators.update({
-                name: Line(array = ind)
-            })
+        if not len(data) == len(ind):
+            msg = f"{name}"
 
-    def buy(self, ticker: str, size: float, price: float):
-        return self.__broker.order(ticker, abs(size), price)
+        key = f"{ticker} {name}"
+        self.__indicators.update({key: ind})
 
-    def sell(self, ticker: str, size: float, price: float):
-        return self.__broker.order(ticker, -abs(size), price)
+        return ind
+
+    def buy(self, data: Union[Asset, Hedge], size: float, price: Optional[float]):
+        return self.__broker.order(data, abs(size), price)
+
+    def sell(self, data: Union[Asset, Hedge], size: float, price: Optional[float]):
+        return self.__broker.order(data, -abs(size), price)
+
+    def get_data(self, ticker: str) -> Optional[Union[Base, Asset]]:
+        if ticker not in self.__datas:
+            return
+        return self.__datas[ticker]
+
+    @property
+    def datas(self) -> Dict[str, Union[Base, Asset]]:
+        return self.__datas
+
+    @datas.setter
+    def datas(
+        self,
+        datas: Dict[str, Union[Base, Asset]],
+    ):
+        """
+        Setter allows only one assignment
+        """
+
+        if self.__datas:
+            return
+        self.__datas = datas
 
     @property
     def indicators(self) -> Dict[str, Line]:
