@@ -1,14 +1,19 @@
 #! /usr/bin/env python3
 
+import sys, os
+
 import numpy as np
 import pandas as pd
 
+from functools import wraps
+
 from numbers import Number
-from datetime import date, datetime
-from typing import Optional, Sequence
+from datetime import date
+from typing import Callable, Optional, Sequence
 
 from .checks import derive_asset
-from .config import _HMETHOD, _COMMTYPE, _SCHEMA
+from .config import _HMETHOD, _COMMTYPE, _CURR
+from .config import _DEFAULT_STEP, _DEFAULT_BUFFER
 
 
 class Line(np.ndarray):
@@ -18,23 +23,21 @@ class Line(np.ndarray):
 
     To get a better sense about what is going on, refer to:
 
-    - https://numpy.org/doc/stable/user/basics.subclassing.html
-    - https://github.com/mementum/backtrader/blob/master/backtrader/linebuffer.py
+    * https://numpy.org/doc/stable/user/basics.subclassing.html
+    * https://github.com/mementum/backtrader/blob/master/backtrader/linebuffer.py
 
     """
 
-    def __new__(cls, array: Sequence):
+    def __new__(cls, array: Sequence = ()):
         arr = np.asarray(array)
 
         obj = arr.view(cls)
-        obj.array = arr
+        obj.__array = arr
+        obj.__buffer = _DEFAULT_BUFFER
 
         return obj
 
     def __getitem__(self, key: int):
-
-        if not hasattr(self, "__buffer"):
-            self.__buffer = 0
 
         key += self.__buffer
         if key < 0:
@@ -47,8 +50,19 @@ class Line(np.ndarray):
 
         return super().__getitem__(key)
 
-    def __set_buffer(self, bf: int):
-        self.__buffer = bf
+    def __repr__(self):
+        return f"<Line({self.array[:self.__buffer+1]})>"
+
+    def __set_buffer(self, buffer: int):
+        self.__buffer = buffer
+
+    @property
+    def buffer(self) -> int:
+        return self.__buffer
+
+    @property
+    def array(self) -> Sequence:
+        return self.__array
 
 
 class Data:
@@ -57,7 +71,7 @@ class Data:
     * A data array accessor. Provides access to OHLCV "columns"
       as a standard `pd.DataFrame` would, except it's not a DataFrame
       and the returned "series" are _not_ `pd.Series` but `np.ndarray`
-      for performance purposes.
+      due to performance purposes.
 
     * Inspired by both Backtesting.py and Backtrader Systems:
       - https://github.com/kernc/backtesting.py.git
@@ -65,96 +79,112 @@ class Data:
 
     * Different from backtesting.py, we treat the basic Data
       Structure as having all properties of an asset, such as
-      ticker, commission structure (type, value), margin req.
+      ticker, currency, commission (value and type), margin req.
       and identifying booleans to indicate things such as
       whether the asset is a stock or a future, whether its
       OHLC data is given in [default] price or rates.
+
+    * Data is stored in [lower-cased] columns whose index must
+      be either a date or datetime (it will be converted to date).
 
     * Note: The framework still doesn't accept timeframes different
       than `daily`... In future updates we'll tackle this issue.
 
     """
 
-    def __init__(self, data: pd.DataFrame):
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        index: Sequence[date] = None,
+    ):
         if not isinstance(data, pd.DataFrame):
             msg = "Data must be `pd.DataFrame`"
             raise NotImplementedError(msg)
 
-        _typ = data.index.inferred_type
-        _mon = data.index.is_monotonic_decreasing
+        if not len(data):
+            msg = "Cannot accept an empty `pd.DataFrame`"
+            raise ValueError(msg)
 
-        if _typ == "datetime64":
-            data.index = data.index.date
+        if index is not None:
+            data = data.reindex(
+                index,
+                method="ffill",
+            )
 
-        elif not _typ == "date":
-            msg = "Index must be `date` or `datetime`"
-            raise TypeError(msg)
+            data = data.sort_index(
+                ascending=True,
+            )
 
-        if _mon:
-            data.sort_index(ascending=True, inplace=True)
+        else:
+            index_type = data.index.inferred_type
 
+            if index_type == "datetime64":
+                data.index = data.index.date
+
+            elif not index_type == "date":
+                msg = "Index must be `date` or `datetime`"
+                raise TypeError(msg)
+
+            data = data.sort_index(
+                ascending=True,
+            )
+
+            index = data.index
+
+        self.__lines = {l.lower(): Line(arr) for l, arr in data.items()}
+        self.__lines["__index"] = Line(index)
         self.__df = data
-        self.__lines = {}
-
-        self.__lines["__index"] = Line(array=data.index)
-        lines = {l.lower(): Line(arr) for l, arr in data.items()}
-
-        self.__lines.update(lines), self.__reset()
+        self.__reset()
 
     def __repr__(self):
-        maxlen = len(self.__df) - 1
-        i = min(self.buffer, maxlen)
 
-        index = self.__lines["__index"][i]
-        dct = {k: v for k, v in self.__df.iloc[i].items()}
+        dct = {k: v for k, v in self.__df.iloc[self.__buffer].items()}
         lines = ", ".join("{}={:.2f}".format(k, v) for k, v in dct.items())
 
-        if hasattr(index, "date"):
-            index = index.date()
-
-        if hasattr(index, "isoformat"):
-            index = index.isoformat()
-
-        if self.__class__.__name__ == "Data":
-            return f"<{self.__class__.__name__} " f"({index}) {lines}>"
-        else:
-            return f"<{self.__class__.__name__} " f"{self.ticker} ({index}) {lines}>"
+        return f"<{self.__class__.__name__} {self.ticker} ({self.dt}) {lines}>"
 
     def __getitem__(self, line: str):
-        try:
-            return self.__lines.get(line.lower())
-
-        except:
-            msg = f"Line '{line}' non existant"
-            raise AttributeError(msg)
+        return self.__lines.get(line.lower())
 
     def __getattr__(self, line: str):
-        try:
-            return self.__lines.get(line.lower())
-
-        except:
-            msg = f"Line '{line}' non existant"
-            raise AttributeError(msg)
+        return self.__lines.get(line.lower())
 
     def __len__(self):
         return len(self.__df)
 
-    def __forward(self, step: int = 1):
+    def __sync_buffer(func: Callable):
+        def wrapper(self, *args, **kwargs):
+
+            func(self, *args, **kwargs)
+
+            for line in self.__lines.values():
+                line._Line__set_buffer(
+                    buffer=self.__buffer,
+                )
+
+        return wrapper
+
+    @__sync_buffer
+    def __forward(self, step: int = _DEFAULT_STEP):
         self.__buffer = min(
             self.__buffer + step,
             len(self) - 1,
         )
 
-        self.__set_line_buffer()
+    @__sync_buffer
+    def __reset(self, origin: int = _DEFAULT_BUFFER):
+        self.__buffer = min(
+            max(0, origin),
+            len(self) - 1,
+        )
 
-    def __reset(self, origin: int = 0):
-        self.__buffer = min(max(0, origin), len(self) - 1)
+    @property
+    def dt(self) -> str:
+        return self.index[0].isoformat()
 
-        self.__set_line_buffer()
-
-    def __set_line_buffer(self):
-        for line in self.__lines.values():
-            line._Line__set_buffer(self.__buffer)
+    @property
+    def df(self) -> pd.DataFrame:
+        return self.__df
 
     @property
     def buffer(self) -> int:
@@ -167,7 +197,7 @@ class Data:
     @property
     def schema(self) -> Sequence[str]:
         lines = self.__lines.keys()
-        return [l for l in lines if not l.startswith("__")]
+        return (l for l in lines if not l.startswith("__"))
 
 
 class Base(Data):
@@ -176,22 +206,29 @@ class Base(Data):
 
     This class is a `Data` child.
 
-    It is intended to hold assets' data 
-    that are not supposed to be used for 
-    trading purposes, but rather assets
-    that are used to generate signals,
-    calculate currency conversion, and
-    stuff like that.
+    It is intended to hold asset/price
+    data that is not supposed to be used
+    for trading purposes, but rather
+    assets that are used to generate
+    signals, calculate currency conversion,
+    and stuff like that.
 
     Therefore there's no need to define
     properties such as mult, comm, etc.
 
     """
 
-    def __init__(self, ticker: str, data: pd.DataFrame):
-        super().__init__(data=data)
+    def __init__(
+        self,
+        ticker: str,
+        data: pd.DataFrame,
+        index: Sequence[date] = None,
+    ):
+        super().__init__(
+            data=data,
+            index=index
+        )
         self.__ticker = ticker
-        self.__signal = None
 
     @property
     def ticker(self) -> str:
@@ -224,13 +261,23 @@ class Asset(Base):
 
     """
 
-    def __init__(self, ticker: str, data: pd.DataFrame):
-        super().__init__(data=data, ticker=ticker)
+    def __init__(
+        self,
+        ticker: str,
+        data: pd.DataFrame,
+        index: Sequence[date] = None,
+        **commkwargs: dict,
+    ):
+        super().__init__(
+            data=data,
+            ticker=ticker,
+            index=index,
+        )
 
         self.__asset: str = None
         self.__maturity: date = None
 
-        self.config()
+        self.config(**commkwargs)
 
     def config(
         self,
@@ -251,19 +298,25 @@ class Asset(Base):
             msg = "Invalid value for margin"
             raise ValueError(msg)
 
+        if currency not in _CURR:
+            msg = "Invalid value for currency"
+            raise ValueError(msg)
+
         if mult is None:
             self.__mult = 1
+            self.__curr = currency
             self.__margin = margin
             self.__stocklike = True
             self.__asset = self.__ticker
-            self.__ctype = _COMMTYPE["S"]
+            self.__commtype = _COMMTYPE["S"]
 
         else:
             self.__mult = mult
+            self.__curr = currency
             self.__margin = margin
             self.__stocklike = False
             self.__asset = derive_asset(self.__ticker)
-            self.__ctype = _COMMTYPE["F"]
+            self.__commtype = _COMMTYPE["F"]
 
     @property
     def asset(self) -> str:
@@ -274,6 +327,10 @@ class Asset(Base):
         return self.__mult
 
     @property
+    def curr(self) -> str:
+        return self.__curr
+
+    @property
     def stocklike(self) -> bool:
         return self.__stocklike
 
@@ -282,11 +339,11 @@ class Asset(Base):
         return self.__comm
 
     @property
-    def ctype(self) -> str:
-        return self.__ctype
+    def commtype(self) -> str:
+        return self.__commtype
 
     @property
-    def leverage(self) -> Number:
+    def levg(self) -> Number:
         return 1 / self.__margin
 
     @property
@@ -297,16 +354,16 @@ class Asset(Base):
 class Hedge(Asset):
 
     """
-    Hedge Asset have their own sizing 
+    Hedge Asset have their own sizing
     rules, which are dependent on the
     assets that compose the "long" side,
-    the hedging method (`hmethod`) and 
+    the hedging method (`hmethod`) and
     the hedging asset.
 
     They are treated separately to
     highlight the difference, making
     possible to rapidly identify whether
-    a given data structure is an `Asset` 
+    a given data structure is an `Asset`
     or `Hedge` instance.
 
     """
@@ -316,11 +373,13 @@ class Hedge(Asset):
         ticker: str,
         data: pd.DataFrame,
         hmethod: str = _HMETHOD["E"],
+        index: Sequence[date] = None,
     ):
         super().__init__(
             self,
             ticker=ticker,
             data=data,
+            index=index,
         )
 
         self.__hmethod = hmethod

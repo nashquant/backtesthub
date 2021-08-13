@@ -4,26 +4,29 @@ from datetime import date
 from numbers import Number
 
 from typing import Optional, Union
-from .utils.types import Asset, Hedge
+from .utils.bases import Asset, Hedge
 from .utils.config import _OTYPE, _STATUS
 
 class Order:
 
     def __init__(
         self,
+        size: Number,
         data: Union[Asset, Hedge],
-        size: Number = 0, 
         limit: Optional[Number] = None, 
-        status: Optional[str] = _STATUS["W"],
     ):
         self.__data = data
         self.__size = size
         self.__limit = limit
-        self.__status = status
+        self.__status = _STATUS["W"]
 
         self.__isbuy = self.__size > 0
         self.__issell = self.__size < 0
 
+        if not isinstance(data, Asset) and not isinstance(data, Hedge):
+            msg = "Order `data` must be either an Asset or a Hedge"
+            raise ValueError(msg)
+            
         if not self.__isbuy and not self.__issell:
             msg = "Order `size` must be an non-zero number"
             raise ValueError(msg)

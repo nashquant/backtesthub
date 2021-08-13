@@ -2,207 +2,190 @@
 
 import pandas as pd
 
-from numbers import Number
 from datetime import date, datetime
-from typing import List, Dict, Sequence, Any
+from typing import Dict, Sequence
 
 from .broker import Broker
 from .strategy import Strategy
-from .pipeline import Pipeline
-from .utils.types import Line, Base, Asset, Hedge
-from .utils.config import _SCHEMA, _CASH, _CURR
+
+from .utils.bases import Base, Asset, Hedge
+from .utils.config import _CURR, _PAIRS
+from .utils.config import _DEFAULT_CASH, _DEFAULT_CURRENCY
+from .utils.config import _DEFAULT_SDATE, _DEFAULT_EDATE
 
 
 class Engine:
 
     """
-    __INTRO__
 
-    * This object is responsible for orchestrating all
-      complementary objects (Strategy, Broker, Position, ...)
-      in order to properly run the simulation.
+    This object is responsible for orchestrating all
+    other objects (Strategy, Broker, Position, ...)
+    in order to properly run the simulation.
 
-    * Lots of features such as intraday operations, multi-calendar
-      runs, live trading, etc. are still pending development.
+    Lots of features such as intraday operations,
+    multi-calendar runs, live trading, etc. are
+    still pending development.
 
-    __KWARGS__
+    If cached is True, it will try to build a
+    local cache of serialized data from the
+    database.
 
-    * `datas` is a sequence of `pd.DataFrame` with columns:
-        `Open`, `High`, `Low`, `Close`, (optionally) `Volume`.
-
-        The passed data frame can contain additional columns that
-        can be used by the strategy.
-
-        DataFrame index can be either a date/datetime index.
-        Still not implemented other formats (str isoformat, int,...)
-
-    * `strategy` is a `backtesting.backtesting.Strategy`
-        __subclass__ (NOT AN INSTANCE!!).
-
-    * Global index is derived by the combination of:
-
-        - `sdate` the start date for the simulation.
-        - `edate` the end date for the simulation.
-        - `holidays` a list of non-tradable days.
-
-    * `cash` is the initial cash to start with.
+    Database configuration is expected to be
+    given in a .env file at the root of the
+    program. The database specifications
+    must comply with what is dictated by
+    .env
 
     """
 
-    def __init__(
-        self,
-        strategy: Strategy,
-        sdate: date,
-        edate: date,
-        cash: float = _CASH,
-        multi: bool = False,
-        curr: str = "BRL",
-    ):
-        self.__strategy = strategy
-        self.__sdate = sdate
-        self.__edate = edate
-        self.__cash = cash
-        self.__multi = multi
-        self.__curr = curr
+    def __init__(self, strategy: Strategy):
 
-        self.__bases = {"A": None, "H": None}
+        self.__strategy = strategy
+
+        self.__bases = {
+            "A": None,
+            "H": None,
+        }
 
         self.__assets = {}
         self.__hedges = {}
         self.__currs = {}
+        self.__carry = {}
         self.__holidays = []
 
-        self.__type_check()
+        self.__sdate = _DEFAULT_SDATE
+        self.__edate = _DEFAULT_EDATE
+        self.__curr = _DEFAULT_CURRENCY
+        self.__cash = _DEFAULT_CASH
+
+        self.__args_validation()
 
         self.__broker = Broker(
             cash=self.__cash,
             curr=self.__curr,
         )
 
-        self.__index = Line(
-            array = pd.bdate_range(
-                start=self.__sdate,
-                end=self.__edate,
-                holidays=self.__holidays,
-            )
+        self.__strategy.addBroker(
+            self,
+            broker=self.__broker,
         )
 
-    def addBase(self, ticker: str, data: pd.DataFrame, hedge: bool = False):
-        """
-        Only one base allowed per side.
-        """
+        self.__index = pd.bdate_range(
+            start=self.__sdate,
+            end=self.__edate,
+            holidays=self.__holidays,
+        ).date
 
-        if not hedge:
-            asset = Base(
-                data=data,
-                ticker=ticker,
-            )
+    def run(self) -> pd.DataFrame:
+        self.__pre_run()
 
-            self.__bases.update({"A": asset})
+        for idx in self.index:
+            self.__broker.next()
+            self.__strategy.next()
 
-        else:
-            hedge = Base(
-                data=data,
-                ticker=ticker,
-            )
-
-            self.__bases.update({"H": hedge})
-
-    def addCurrency(
-        self,
-        curr_base: str,
-        curr_target: str,
-        data: pd.DataFrame,
-    ):
-        """
-        Example:
-        curr_base = "USD"
-        curr_target = "BRL"
-        curr = "USDBRL"
-        """
-
-        if curr_base == curr_target:
-            return
-        if curr_base not in _CURR:
-            return
-        if curr_target not in _CURR:
-            return
-
-        curr = f"{curr_base}{curr_target}"
-        base = Base(
-            ticker=curr,
-            data=data,
-        )
-
-        self.__currs.update({curr: base})
-
-    def addAsset(
+    def add_base(
         self,
         ticker: str,
         data: pd.DataFrame,
-        meta: pd.DataFrame = None,
-        **comminfo: Dict[str, Any],
+        hedge: bool = False,
+        main: bool = True,
+    ):
+        """
+
+        `Main` is a boolean that indicates
+        whether the asset is the main base
+        or not. You can have only one core
+        base per side, but multiple non-core
+        ones
+
+        PS: Only one base allowed per side.
+        "A": "Asset" Side
+        "H": "Hedge" Side
+
+        """
+
+        base = Base(
+            ticker=ticker,
+            data=data,
+            index = self.index,
+        )
+
+        if ticker.upper() in _PAIRS:
+            self.__currs.update(
+                {ticker: base},
+            )
+        if ticker.upper() == "CARRY":
+            self.__carry.update(
+                {ticker: base},
+            )
+
+        if main:
+            if not hedge:
+                self.__bases.update(
+                    {"A": base},
+                )
+            else:
+                self.__bases.update(
+                    {"H": base},
+                )
+
+    def add_asset(
+        self,
+        ticker: str,
+        data: pd.DataFrame,
+        **commkwargs: dict,
     ):
         asset = Asset(
             data=data,
             ticker=ticker,
+            index = self.index,
         )
 
-        asset.config(**comminfo)
+        if commkwargs:
+            asset.config(
+                **commkwargs,
+            )
 
-        if meta is not None:
-            pass
+        self.__assets.update(
+            {ticker: asset},
+        )
 
-        self.__assets.update({ticker: asset})
-
-    def addHedge(
+    def add_hedge(
         self,
         ticker: str,
         hmethod: str,
         data: pd.DataFrame,
-        meta: pd.DataFrame = None,
-        **comminfo: Dict[str, Any],
+        **commkwargs: dict,
     ):
         hedge = Hedge(
             data=data,
             ticker=ticker,
             hmethod=hmethod,
+            index = self.index,
         )
 
-        hedge.config(**comminfo)
+        if commkwargs:
+            hedge.config(
+                **commkwargs,
+            )
 
-        if meta is not None:
+        self.__hedges.update(
+            {ticker: hedge},
+        )
+
+    def __build_pipeline(self):
+        if hasattr(self, "__multi"):
             pass
 
-        self.__hedges.update({ticker: hedge})
-
-    def init(self):
-
-        self.__build_pipeline()
-        self.__pipeline.init()
-
-        self.__strategy.init()
-
-    def run(self) -> Dict[str, Number]:
-
-        if not {**self.__bases, **self.__assets}:
+    def __pre_run(self):
+        if not self.__assets:
             msg = "No Data was provided!!"
             raise ValueError(msg)
 
-        for idx in self.index:
+        self.__build_pipeline()
+        self.__strategy.init(self)
 
-            universe = self.__pipeline.run()
-
-            self.__broker.next()
-            self.__strategy.next()
-
-    def __build_pipeline(self):
-
-        if self.__multiasset:
-
-            self.__pipeline = Pipeline(assets=self.__assets)
-
-    def __type_check(self):
+    def __args_validation(self):
 
         if not (issubclass(self.__strategy, Strategy)):
             msg = "Arg `strategy` must be a Strategy sub-type"
@@ -235,13 +218,9 @@ class Engine:
             raise TypeError(msg)
 
     @property
-    def __datas(self):
-        return {**self.__assets, **self.__hedges}
-
-    @property
     def index(self):
-        return self.__index
+        return tuple(self.__index)
 
     @property
     def dt(self):
-        return self.__index[0]
+        return self.__index[0].isoformat()

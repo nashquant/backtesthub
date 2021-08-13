@@ -2,25 +2,40 @@
 
 import pandas as pd
 from abc import ABCMeta, abstractmethod
-from typing import List, Dict, Callable, Union
+from typing import Callable, Dict, Union
 
 from .order import Order
 from .broker import Broker
-from .utils.types import *
-from .position import Position
-
+from .utils.bases import *
+from .utils.config import _MODE
 
 class Strategy(metaclass=ABCMeta):
-    def __init__(
-        self,
-        broker: Broker,
-        datas: Dict[str, pd.DataFrame] = {},
+
+    def __init__(self):
+
+        if not hasattr(self, "mode"):
+            self.mode = "V"
+
+        if self.mode not in _MODE:
+            msg = "Calculation Mode not implemented"
+            raise NotImplementedError(msg)
+        else:
+            self.__mode=_MODE[self.mode]
+        
+        self.__datas={}
+        self.__indicators={}
+
+    def addData(
+        self, 
+        data: Union[Base, Asset],
     ):
+        pass
 
-        self.__datas = datas
+    def addBroker(
+        self,
+        broker: Broker
+    ):
         self.__broker = broker
-
-        self.indicators = {}
 
     @abstractmethod
     def init(self):
@@ -53,10 +68,17 @@ class Strategy(metaclass=ABCMeta):
         * make sure to call `super().next()`!
         """
 
-    def I(self, data: Union[Base, Asset, Hedge], f: Callable, **params):
+    def I(
+        self,
+        f: Callable,
+        **params: Dict,
+    ):
 
         """
         Declare indicator.
+
+        * Inspired by Backtesting.py project:
+        https://github.com/kernc/backtesting.py.git
 
         * An indicator is just a line of values,but one that is revealed
           gradually in `backtesting.backtesting.Strategy.next` much like
@@ -65,31 +87,28 @@ class Strategy(metaclass=ABCMeta):
         * `func` is a function that returns the indicator array(s) of
           same length as `backtesting.backtesting.Strategy.data`.
 
-        * Additional `*args` and `**kwargs` are passed to `func` and can
-          be used for parameters.
-
         * For example, using simple moving average function from TA-Lib:
             def init():
-                self.sma = self.I(ta.SMA, self.data.Close, self.n_sma)
+                self.sma = self.I(ta.SMA, self.data.Close, p1 = self.p1, p2 = self.p2)
         """
-
-        assert type(data) == Asset
 
         name = params.pop("name", None)
 
         if name is None:
             name = f"{f.__name__}{tuple(params.items())}"
 
-        try:
-            ind = f(**params)
+        if self.__mode == _MODE["V"]:
+            try:
+                ind = f(**params)
+            except Exception as e:
+                raise Exception(e)
 
-        except Exception as e:
-            raise Exception(e)
+            if isinstance(ind, pd.DataFrame):
+                ind = ind.values.T
 
-        if isinstance(ind, pd.DataFrame):
-            ind = ind.values.T
-
-        self.indicators[name] = Line(array=ind, index=data.index)
+            self.__indicators.update({
+                name: Line(array = ind)
+            })
 
     def buy(self, ticker: str, size: float, price: float):
         return self.__broker.order(ticker, abs(size), price)
@@ -98,10 +117,5 @@ class Strategy(metaclass=ABCMeta):
         return self.__broker.order(ticker, -abs(size), price)
 
     @property
-    def equity(self) -> float:
-
-        """
-        Current account equity
-        """
-
-        return self.__broker.equity
+    def indicators(self) -> Dict[str, Line]:
+        return self.__indicators

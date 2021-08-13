@@ -3,7 +3,7 @@
 from typing import Union, Optional
 
 from .utils.config import _METHOD
-from .utils.types import Asset, Hedge
+from .utils.bases import Asset, Hedge
 
 class Position:
 
