@@ -1,17 +1,14 @@
 #! /usr/bin/env python3
 
-import sys, os
-
 import numpy as np
 import pandas as pd
-
-from functools import wraps
 
 from numbers import Number
 from datetime import date
 from typing import Callable, Optional, Sequence
 
 from .checks import derive_asset
+from .config import _RATESLIKE
 from .config import _HMETHOD, _COMMTYPE, _CURR
 from .config import _DEFAULT_STEP, _DEFAULT_BUFFER
 
@@ -68,21 +65,13 @@ class Line(np.ndarray):
 class Data:
 
     """
-    * A data array accessor. Provides access to OHLCV "columns"
-      as a standard `pd.DataFrame` would, except it's not a DataFrame
-      and the returned "series" are _not_ `pd.Series` but `np.ndarray`
-      due to performance purposes.
+    * A data array accessor. Even though the input is a `pd.DataFrame`
+      it gets transformed into a series of Lines (`np.ndarray`) due to
+      performance purposes.
 
     * Inspired by both Backtesting.py and Backtrader Systems:
       - https://github.com/kernc/backtesting.py.git
       - https://github.com/mementum/backtrader
-
-    * Different from backtesting.py, we treat the basic Data
-      Structure as having all properties of an asset, such as
-      ticker, currency, commission (value and type), margin req.
-      and identifying booleans to indicate things such as
-      whether the asset is a stock or a future, whether its
-      OHLC data is given in [default] price or rates.
 
     * Data is stored in [lower-cased] columns whose index must
       be either a date or datetime (it will be converted to date).
@@ -99,7 +88,7 @@ class Data:
     ):
         if not isinstance(data, pd.DataFrame):
             msg = "Data must be `pd.DataFrame`"
-            raise NotImplementedError(msg)
+            raise TypeError(msg)
 
         if not len(data):
             msg = "Cannot accept an empty `pd.DataFrame`"
@@ -204,12 +193,11 @@ class Base(Data):
 
     """
 
-    This class is a `Data` child.
-
-    It is intended to hold asset/price
-    data that is not supposed to be used
-    for trading purposes, but rather
-    assets that are used to generate
+    Base extends `Data` to create an
+    unique asset class that is intended 
+    to hold asset/price data that is not 
+    supposed to be used for trading purposes, 
+    but rather assets that are used to generate
     signals, calculate currency conversion,
     and stuff like that.
 
@@ -239,6 +227,13 @@ class Asset(Base):
 
     """
 
+    Different from backtesting.py, we treat the basic Data
+    Structure as having all properties of an asset, such as
+    ticker, currency, commission (value and type), margin req.
+    and identifying booleans to indicate things such as
+    whether the asset is a stock or a future, whether its
+    OHLC data is given in [default] price or rates.
+
     Asset Extends `Base` including features such as:
 
     * `mult` is the contract base price multiplier,
@@ -259,6 +254,9 @@ class Asset(Base):
       account. No difference is made between initial and
       maintenance margins.
 
+    * `maturity` is the maturity date of an asset. Specially
+      import for derivative contracts such as options and futures.
+
     """
 
     def __init__(
@@ -266,7 +264,9 @@ class Asset(Base):
         ticker: str,
         data: pd.DataFrame,
         index: Sequence[date] = None,
-        **commkwargs: dict,
+        asset: Optional[str] = None,
+        maturity: Optional[date] = None,
+        **commkwargs,
     ):
         super().__init__(
             data=data,
@@ -274,8 +274,8 @@ class Asset(Base):
             index=index,
         )
 
-        self.__asset: str = None
-        self.__maturity: date = None
+        self.__asset = asset
+        self.__maturity = maturity
 
         self.config(**commkwargs)
 
@@ -307,16 +307,26 @@ class Asset(Base):
             self.__curr = currency
             self.__margin = margin
             self.__stocklike = True
+            self.__rateslike = False
             self.__asset = self.__ticker
             self.__commtype = _COMMTYPE["S"]
 
         else:
             self.__mult = mult
+            
             self.__curr = currency
             self.__margin = margin
             self.__stocklike = False
             self.__asset = derive_asset(self.__ticker)
+            self.__rateslike = self.__asset in _RATESLIKE
             self.__commtype = _COMMTYPE["F"]
+
+            if self.__maturity is None:
+                msg="Maturity is required for Future-Like assets"
+                ValueError(msg)
+
+    def adjust(self):
+        pass
 
     @property
     def asset(self) -> str:
@@ -333,6 +343,10 @@ class Asset(Base):
     @property
     def stocklike(self) -> bool:
         return self.__stocklike
+
+    @property
+    def rateslike(self) -> bool:
+        return self.__rateslike
 
     @property
     def comm(self) -> Number:
@@ -372,8 +386,11 @@ class Hedge(Asset):
         self,
         ticker: str,
         data: pd.DataFrame,
-        hmethod: str = _HMETHOD["E"],
         index: Sequence[date] = None,
+        hmethod: str = _HMETHOD["E"],
+        asset: Optional[str] = None,
+        maturity: Optional[date] = None,
+        **commkwargs
     ):
         super().__init__(
             self,

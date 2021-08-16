@@ -87,7 +87,10 @@ _HMETHOD = dict(
 )
 
 _PMETHOD = dict(
-    R="RANKING",
+    DEFT="DEFAULT",
+    RANK="RANKING",
+    ROLL="ROLLING",
+    VERT="VERTICE",
 )
 
 _RATESLIKE = (

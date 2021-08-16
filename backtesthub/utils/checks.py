@@ -4,7 +4,7 @@ from .config import _MATURITIES
 
 def derive_params(args: Sequence[Any]) -> str:
     """
-    Stringfy `*args` in order to enable
+    Stringify `*args` in order to enable
     a standardized name for indicators.
 
     E.g. func = SMACross, args = (10, 200)

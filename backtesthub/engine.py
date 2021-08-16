@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from backtesthub.pipeline import Pipeline
 import pandas as pd
 
 from datetime import date, datetime
@@ -26,15 +27,9 @@ class Engine:
     multi-calendar runs, live trading, etc. are
     still pending development.
 
-    If cached is True, it will try to build a
-    local cache of serialized data from the
-    database.
-
-    Database configuration is expected to be
-    given in a .env file at the root of the
-    program. The database specifications
-    must comply with what is dictated by
-    .env
+    Some settings may be changed through environment
+    variables configuration. Refer to .utils.config
+    to get more info.
 
     """
 
@@ -48,8 +43,14 @@ class Engine:
             "hbase": None,
         }
 
-        self.__baselike = False
-        self.__hedgelike = False
+        self.__case = dict(
+            stocklike=None,
+            rateslike=None,
+            multiasset=None,
+            h_stocklike=None,
+            h_rateslike=None,
+            h_multiasset=None,
+        )
 
         self.__assets = {}
         self.__hedges = {}
@@ -69,6 +70,9 @@ class Engine:
 
         self.__strategy: Strategy = strategy(
             broker=self.__broker,
+            bases=self.__bases,
+            assets=self.__assets,
+            hedges=self.__hedges,
         )
 
         self.__args_validation()
@@ -80,15 +84,6 @@ class Engine:
                 holidays=self.__holidays,
             ).date
         )
-
-        pass
-
-    def run(self) -> pd.DataFrame:
-        self.__pre_run()
-
-        for idx in self.index:
-            self.__broker.next()
-            self.__strategy.next()
 
     def add_base(
         self,
@@ -131,12 +126,11 @@ class Engine:
                 self.__bases.update(
                     {"base": base},
                 )
-                self.__baselike = True
+
             else:
                 self.__bases.update(
                     {"hbase": base},
                 )
-                self.__hedgelike = True
 
     def add_asset(
         self,
@@ -149,6 +143,19 @@ class Engine:
             ticker=ticker,
             index=self.index,
         )
+
+        if self.__case["stocklike"] is None:
+            self.__case["stocklike"] = asset.stocklike
+            self.__case["rateslike"] = asset.rateslike
+            self.__case["multiasset"] = False
+        elif (
+            not self.__case["stocklike"] == asset.stocklike
+            and not self.__case["rateslike"] == asset.rateslike
+        ):
+            msg = "Case not acknowledged as valid"
+            raise ValueError(msg)
+        else:
+            self.__case["multiasset"] = True
 
         if commkwargs:
             asset.config(
@@ -173,6 +180,19 @@ class Engine:
             index=self.index,
         )
 
+        if self.__case["h_stocklike"] is None:
+            self.__case["h_stocklike"] = hedge.stocklike
+            self.__case["h_rateslike"] = hedge.rateslike
+            self.__case["h_multiasset"] = False
+        elif (
+            not self.__case["h_stocklike"] == hedge.stocklike
+            and not self.__case["h_rateslike"] == hedge.rateslike
+        ):
+            msg = "Case not acknowledged as valid"
+            raise ValueError(msg)
+        else:
+            self.__case["multiasset"] = True
+
         if commkwargs:
             hedge.config(
                 **commkwargs,
@@ -182,35 +202,33 @@ class Engine:
             {ticker: hedge},
         )
 
-        self.__hedgelike = True
-
-    def add_meta(
-        self,
-        asset: str,
-        data: pd.DataFrame,
-    ):
-        pass
-
-    def __build_pipeline(self):
-        pass
-
     def __pre_run(self):
         if not self.__assets:
             msg = "No Data was provided!!"
             raise ValueError(msg)
 
-        self.__build_pipeline()
+        self.__pipeline = Pipeline(
+            bases=self.__bases,
+            assets=self.__assets,
+            hedges=self.__hedges,
+            case=self.__case,
+        )
 
-        self.__strategy.datas = self.datas
+        self.__strategy.init()
 
-        if self.__baselike:
-            self.__strategy.config(
-                self.__bases["base"],
-            )
+    def run(self) -> pd.DataFrame:
+        self.__pre_run()
 
-        else:
-            for data in self.datas.values():
-                self.__strategy.config(data)
+        for self.dt in self.__index:
+            self.__next()
+
+    def __next(self):
+
+        self.__broker.next()
+        self.__strategy.next()
+
+        for data in self.all_datas.values():
+            data._Data__forward()
 
     def __args_validation(self):
 
@@ -244,13 +262,20 @@ class Engine:
             msg = "Sequence `holidays` must have date elements"
             raise TypeError(msg)
 
+    def __len__(self) -> int:
+        return len(self.__index)
+
     @property
     def index(self) -> Sequence[date]:
         return self.__index
 
     @property
-    def dt(self) -> str:
-        return self.__index[0].isoformat()
+    def strategy(self) -> Strategy:
+        return self.__strategy
+
+    @property
+    def pipeline(self) -> Pipeline:
+        return self.__pipeline
 
     @property
     def datas(self) -> Dict[str, Union[Base, Asset]]:
@@ -259,5 +284,7 @@ class Engine:
         return datas
 
     @property
-    def strategy(self) -> Strategy:
-        return self.__strategy
+    def all_datas(self) -> Dict[str, Union[Base, Asset, Hedge]]:
+        datas = {**self.datas, **self.__hedges}
+        datas = {k: v for k, v in datas.items() if v is not None}
+        return datas
