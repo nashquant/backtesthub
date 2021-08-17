@@ -72,7 +72,13 @@ class Engine:
             broker=self.__broker,
             bases=self.__bases,
             assets=self.__assets,
+        )
+
+        self.__pipeline: Pipeline = Pipeline(
+            bases=self.__bases,
+            assets=self.__assets,
             hedges=self.__hedges,
+            case=self.__case,
         )
 
         self.__args_validation()
@@ -202,22 +208,13 @@ class Engine:
             {ticker: hedge},
         )
 
-    def __pre_run(self):
-        if not self.__assets:
-            msg = "No Data was provided!!"
-            raise ValueError(msg)
-
-        self.__pipeline = Pipeline(
-            bases=self.__bases,
-            assets=self.__assets,
-            hedges=self.__hedges,
-            case=self.__case,
-        )
-
-        self.__strategy.init()
-
     def run(self) -> pd.DataFrame:
-        self.__pre_run()
+        
+        if not self.__assets:
+            return
+
+        self.__pipeline.init()
+        self.__strategy.init()
 
         for self.dt in self.__index:
             self.__next()

@@ -167,6 +167,16 @@ class Data:
             len(self) - 1,
         )
 
+    def add_line(self, name: str, line: Line):
+
+        if not isinstance(line, Line):
+            msg = "signal must be Line Type"
+            raise TypeError(msg)
+
+        self.__lines.update(
+            {name: line},
+        )
+
     @property
     def dt(self) -> str:
         return self.index[0].isoformat()
@@ -324,6 +334,7 @@ class Asset(Base):
             if self.__maturity is None:
                 msg="Maturity is required for Future-Like assets"
                 ValueError(msg)
+            
 
     def adjust(self):
         pass

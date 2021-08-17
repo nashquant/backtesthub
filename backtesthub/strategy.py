@@ -1,13 +1,14 @@
 #! /usr/bin/env python3
 
+import numpy as np
+
 from abc import ABCMeta, abstractmethod
-from typing import Callable, Dict, Union, Any
+from typing import Callable, Dict, Sequence, Union, Optional
 
 from .broker import Broker
-from .pipeline import Pipeline
-from .utils.bases import *
 from .utils.config import _MODE
 from .utils.checks import derive_params
+from .utils.bases import Line, Base, Asset, Hedge
 
 
 class Strategy(metaclass=ABCMeta):
@@ -16,16 +17,14 @@ class Strategy(metaclass=ABCMeta):
         broker: Broker,
         bases: Dict[str, Optional[Base]],
         assets: Dict[str, Optional[Asset]],
-        hedges: Dict[str, Optional[Hedge]],
     ):
 
         self.__broker = broker
         self.__bases = bases
         self.__assets = assets
-        self.__hedges = hedges
-        
-        self.__indicators = {}
-        self.__mode = _MODE["V"]
+
+        self.__mode: str = _MODE["V"]
+        self.__indicators: Dict[str, str] = {}
 
     @abstractmethod
     def init():
@@ -77,7 +76,10 @@ class Strategy(metaclass=ABCMeta):
         if self.__mode == _MODE["V"]:
 
             try:
-                ind = Line(func(data, *args))
+                ind = func(data, *args)
+                signal = Line(array=np.sign(ind))
+                strength = Line(array=ind)
+
             except Exception as e:
                 raise Exception(e)
 
@@ -89,29 +91,58 @@ class Strategy(metaclass=ABCMeta):
             msg = f"{name}: error in Line length"
             raise ValueError(msg)
 
-        key = f"{ticker} {name}"
-        self.__indicators.update({key: ind})
+        self.__indicators.update(
+            {ticker: name},
+        )
 
-        return ind
+        data.add_line(
+            name="signal",
+            line=signal,
+        )
 
-    def buy(self, data: Union[Asset, Hedge], size: float, price: Optional[float]):
+        data.add_line(
+            name="strength",
+            line=strength,
+        )
+
+    def broadcast(
+        self, 
+        base: Optional[Base] = None,
+        assets: Optional[Sequence[Asset]] = [],
+    ):
+
+        if not base: base = self.bases["base"]
+        if not assets: assets = self.assets.values()
+
+        for asset in self.assets:
+            asset.add_line(
+                name="signal",
+                line=base.signal,
+            )
+
+            asset.add_line(
+                name="strength",
+                line=base.strength,
+            )
+
+    def buy(self, data: Union[Asset], size: float, price: Optional[float]):
         self.__broker.order(data=data, size=abs(size), limit=price)
 
-    def sell(self, data: Union[Asset, Hedge], size: float, price: Optional[float]):
+    def sell(self, data: Union[Asset], size: float, price: Optional[float]):
         self.__broker.order(data=data, size=-abs(size), limit=price)
 
     @property
-    def indicators(self) -> Dict[str, Line]:
+    def indicators(self) -> Dict[str, str]:
         return self.__indicators
 
     @property
     def bases(self) -> Dict[str, Base]:
-        return self.__bases
+        return {k: v for k, v in self.__bases.items() if v is not None}
 
     @property
     def assets(self) -> Dict[str, Asset]:
-        return self.__assets
+        return {k: v for k, v in self.__assets.items() if v is not None}
 
     @property
     def hedges(self) -> Dict[str, Hedge]:
-        return self.__hedges
+        return {k: v for k, v in self.__hedges.items() if v is not None}

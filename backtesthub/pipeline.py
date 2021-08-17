@@ -44,11 +44,15 @@ class Pipeline:
         hedges: Dict[str, Hedge] = {},
         **case: Dict[str, Optional[bool]],
     ):
+        self.__assets = assets
+        self.__hedges = hedges
+        self.__case = case
+        self.__method = ""
 
-        if len(assets) == 1:
-            self.__case = _PMETHOD["DEFT"] ## DEFAULT
+    def init(self):
 
-        
+        if len(self.__assets) == 1:
+            self.__method = _PMETHOD["DEFT"] ## DEFAULT  
             
 
     def run(self, dt: date) -> Sequence[str]:
