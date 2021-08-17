@@ -17,11 +17,13 @@ class Strategy(metaclass=ABCMeta):
         broker: Broker,
         bases: Dict[str, Optional[Base]],
         assets: Dict[str, Optional[Asset]],
+        hedges: Dict[str, Optional[Hedge]],
     ):
 
         self.__broker = broker
         self.__bases = bases
         self.__assets = assets
+        self.__hedges = hedges
 
         self.__mode: str = _MODE["V"]
         self.__indicators: Dict[str, str] = {}
@@ -74,11 +76,8 @@ class Strategy(metaclass=ABCMeta):
         name = f"{func.__name__}({params})"
 
         if self.__mode == _MODE["V"]:
-
             try:
                 ind = func(data, *args)
-                signal = Line(array=np.sign(ind))
-                strength = Line(array=ind)
 
             except Exception as e:
                 raise Exception(e)
@@ -90,6 +89,9 @@ class Strategy(metaclass=ABCMeta):
         if not len(data) == len(ind):
             msg = f"{name}: error in Line length"
             raise ValueError(msg)
+
+        strength = Line(array=ind)
+        signal = Line(array=np.sign(ind))
 
         self.__indicators.update(
             {ticker: name},

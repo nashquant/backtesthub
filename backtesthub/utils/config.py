@@ -87,7 +87,7 @@ _HMETHOD = dict(
 )
 
 _PMETHOD = dict(
-    DEFT="DEFAULT",
+    DEFA="DEFAULT",
     RANK="RANKING",
     ROLL="ROLLING",
     VERT="VERTICE",

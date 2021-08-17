@@ -50,8 +50,14 @@ class Line(np.ndarray):
     def __repr__(self):
         return f"<Line({self.array[:self.__buffer+1]})>"
 
-    def __set_buffer(self, buffer: int):
-        self.__buffer = buffer
+    def __len__(self):
+        return len(self)
+
+    def __next(self, step: int = _DEFAULT_STEP):
+        self.__buffer = min(
+            self.__buffer + step,
+            len(self) - 1,
+        )
 
     @property
     def buffer(self) -> int:
@@ -96,7 +102,7 @@ class Data:
 
         if index is not None:
             data = data.reindex(
-                index,
+                index=index,
                 method="ffill",
             )
 
@@ -118,12 +124,11 @@ class Data:
                 ascending=True,
             )
 
-            index = data.index
+            index = tuple(data.index)
 
         self.__lines = {l.lower(): Line(arr) for l, arr in data.items()}
-        self.__lines["__index"] = Line(index)
+        self.__lines["__index"] = Line(array = index)
         self.__df = data
-        self.__reset()
 
     def __repr__(self):
 
@@ -147,23 +152,14 @@ class Data:
             func(self, *args, **kwargs)
 
             for line in self.__lines.values():
-                line._Line__set_buffer(
-                    buffer=self.__buffer,
-                )
+                line._Line__next()
 
         return wrapper
 
     @__sync_buffer
-    def __forward(self, step: int = _DEFAULT_STEP):
+    def next(self, step: int = _DEFAULT_STEP):
         self.__buffer = min(
             self.__buffer + step,
-            len(self) - 1,
-        )
-
-    @__sync_buffer
-    def __reset(self, origin: int = _DEFAULT_BUFFER):
-        self.__buffer = min(
-            max(0, origin),
             len(self) - 1,
         )
 

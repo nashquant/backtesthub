@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from numbers import Number
 from typing import Union, Optional
 
 from .utils.config import _METHOD
@@ -27,10 +28,8 @@ class Position:
             raise TypeError(msg)
             
         self.__data = data
-        self.__ticker = data.ticker
-        self.__stocklike = data.stocklike
         
-        self.__size = None
+        self.__size: Number = None
         self.__signal = None
         self.__target = None
         self.__avgprc = None
@@ -47,37 +46,9 @@ class Position:
 
         return log
 
-    def update(self):
-
-        """
-
-        Update Target Sizing 
-        
-        """
-
-        self.__get_signal()
-        self.__get_target()
-        
-        if not self.__stocklike:
-            self.__roll()
-
-
-    def __get_signal(self):
-        pass
-
-    def __get_target(self):
+    def target(self):
         pass
     
-    @property
-    def target(self) -> float:
-        
-        """
-
-        Expose `self.__target` to client
-        
-        """
-        
-        return self.__target
 
     @property
     def size(self) -> float:

@@ -4,15 +4,16 @@ from backtesthub.pipeline import Pipeline
 import pandas as pd
 
 from datetime import date, datetime
+from numbers import Number
 from typing import Dict, Sequence, Union
 
 from .broker import Broker
 from .strategy import Strategy
+from .calendar import Calendar
 
-from .utils.bases import Base, Asset, Hedge
+from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import _CURR, _PAIRS
 from .utils.config import _DEFAULT_CASH, _DEFAULT_CURRENCY
-from .utils.config import _DEFAULT_SDATE, _DEFAULT_EDATE
 
 
 class Engine:
@@ -36,11 +37,23 @@ class Engine:
     def __init__(
         self,
         strategy: Strategy,
+        calendar: Calendar,
     ):
+
+        if not (issubclass(strategy, Strategy)):
+            msg = "Arg `strategy` must be a `Strategy` subclass!"
+            raise TypeError(msg)
+
+        if not (isinstance(calendar, Calendar)):
+            msg = "Arg `calendar` must be a `Calendar` instance!"
+            raise TypeError(msg)
+
+        self.__calendar = calendar
+        self.__index = calendar.index
 
         self.__bases = {
             "base": None,
-            "hbase": None,
+            "h_base": None,
         }
 
         self.__case = dict(
@@ -56,22 +69,17 @@ class Engine:
         self.__hedges = {}
         self.__currs = {}
         self.__carry = {}
-        self.__holidays = []
-
-        self.__sdate = _DEFAULT_SDATE
-        self.__edate = _DEFAULT_EDATE
-        self.__curr = _DEFAULT_CURRENCY
-        self.__cash = _DEFAULT_CASH
-
+        self.__universe = []
+        
         self.__broker: Broker = Broker(
-            cash=self.__cash,
-            curr=self.__curr,
+            index=self.__index,
         )
 
         self.__strategy: Strategy = strategy(
             broker=self.__broker,
             bases=self.__bases,
             assets=self.__assets,
+            hedges=self.__hedges,
         )
 
         self.__pipeline: Pipeline = Pipeline(
@@ -79,16 +87,6 @@ class Engine:
             assets=self.__assets,
             hedges=self.__hedges,
             case=self.__case,
-        )
-
-        self.__args_validation()
-
-        self.__index: Sequence[date] = tuple(
-            pd.bdate_range(
-                start=self.__sdate,
-                end=self.__edate,
-                holidays=self.__holidays,
-            ).date
         )
 
     def add_base(
@@ -142,7 +140,7 @@ class Engine:
         self,
         ticker: str,
         data: pd.DataFrame,
-        **commkwargs: dict,
+        **commkwargs: Union[str, Number],
     ):
         asset = Asset(
             data=data,
@@ -177,7 +175,7 @@ class Engine:
         ticker: str,
         hmethod: str,
         data: pd.DataFrame,
-        **commkwargs: dict,
+        **commkwargs: Union[str, Number],
     ):
         hedge = Hedge(
             data=data,
@@ -209,7 +207,7 @@ class Engine:
         )
 
     def run(self) -> pd.DataFrame:
-        
+
         if not self.__assets:
             return
 
@@ -217,47 +215,20 @@ class Engine:
         self.__strategy.init()
 
         for self.dt in self.__index:
-            self.__next()
 
-    def __next(self):
+            self.__broker.next()
+            self.__strategy.next()
 
-        self.__broker.next()
-        self.__strategy.next()
+            new = self.__pipeline.run(
+                date=self.dt,
+                old=self.__universe,
+            )
 
-        for data in self.all_datas.values():
-            data._Data__forward()
+            self.__universe = new
 
-    def __args_validation(self):
+            for data in self.__universe:
+                data.next()
 
-        if not (isinstance(self.__strategy, Strategy)):
-            msg = "Arg `strategy` must be a `Strategy`"
-            raise TypeError(msg)
-
-        if not self.__curr in _CURR:
-            msg = "Unknown `currency` requested"
-            raise ValueError(msg)
-
-        if isinstance(self.__sdate, datetime):
-            self.__sdate = self.__sdate.date()
-
-        if not isinstance(self.__sdate, date):
-            msg = "Arg `sdate` must be a date"
-            raise TypeError(msg)
-
-        if isinstance(self.__edate, datetime):
-            self.__edate = self.__edate.date()
-
-        if not isinstance(self.__edate, date):
-            msg = "Arg `edate` must be a date"
-            raise TypeError(msg)
-
-        if not isinstance(self.__holidays, Sequence):
-            msg = "Arg `holidays` must be a Sequence"
-            raise TypeError(msg)
-
-        if not all(isinstance(dt, date) for dt in self.__holidays):
-            msg = "Sequence `holidays` must have date elements"
-            raise TypeError(msg)
 
     def __len__(self) -> int:
         return len(self.__index)
@@ -271,8 +242,8 @@ class Engine:
         return self.__strategy
 
     @property
-    def pipeline(self) -> Pipeline:
-        return self.__pipeline
+    def universe(self) -> Sequence[Asset]:
+        return self.__universe
 
     @property
     def datas(self) -> Dict[str, Union[Base, Asset]]:
