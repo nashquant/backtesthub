@@ -200,7 +200,7 @@ class Data:
     @property
     def schema(self) -> Sequence[str]:
         lines = self.__lines.keys()
-        return (l for l in lines if not l.startswith("__"))
+        return tuple(l for l in lines if not l.startswith("__"))
 
 
 class Base(Data):

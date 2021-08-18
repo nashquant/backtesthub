@@ -51,7 +51,6 @@ class Engine:
             msg = "Arg `calendar` must be a `Calendar` instance!"
             raise TypeError(msg)
 
-        self.__calendar = calendar
         self.__index = calendar.index
 
         self.__bases = {

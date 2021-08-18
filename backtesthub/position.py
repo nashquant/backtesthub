@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-from numbers import Number
 from typing import Union, Optional
 from .utils.bases import Asset, Hedge
 

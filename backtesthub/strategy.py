@@ -3,12 +3,12 @@
 import numpy as np
 
 from abc import ABCMeta, abstractmethod
-from typing import Callable, Dict, Union, Optional
+from typing import Callable, Dict, Union, Optional, Sequence
 
 from .broker import Broker
-from .position import Position
 
 from .utils.checks import derive_params
+from .utils.math import EWMAVolatility
 from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import (
     _MODE, 
@@ -72,9 +72,6 @@ class Strategy(metaclass=ABCMeta):
         """
         Declare indicator.
 
-        * Inspired by Backtesting.py project:
-        https://github.com/kernc/backtesting.py.git
-
         """
 
         ticker = data.ticker
@@ -113,28 +110,62 @@ class Strategy(metaclass=ABCMeta):
             line=strength,
         )
 
+        ## If volatility is not given, override it with default
+        ## Else if volatility is given, either override it with new or pass
+
+        if "volatility" not in set(data.schema):
+            self.V(data = data)
+
+    def V(
+        self,
+        func: Callable = EWMAVolatility,
+        data: Optional[Union[Base, Asset]] = None,
+        *args: Union[str, int, float],
+    ):
+
+        if data is None:
+            if self.bases.get("base") is not None:
+                data = self.bases.get("base")
+            else:
+                msg = "Cannot work without data"
+                raise ValueError(msg)
+
+        try:
+            vol = func(data, *args)
+
+        except Exception as e:
+            raise Exception(e)
+
+        data.add_line(
+            name="volatility",
+            line=Line(array=vol),
+        )
+
     def broadcast(
         self,
         base: Optional[Base] = None,
         assets: Optional[Dict[str, Asset]] = {},
+        lines: Sequence[str]=["Signal", "Strength","Volatility"],
     ):
 
         if not base:
-            base = self.bases["base"]
+            base = self.bases.get("base")
         if not assets:
             assets = self.assets
 
         for asset in assets.values():
+            for line in lines:
+                line = line.lower()
+                
+                if not line in set(base.schema):
+                    continue
 
-            asset.add_line(
-                name="signal",
-                line=base.signal,
-            )
+                asset.add_line(
+                    name=line,
+                    line=eval(f"base.{line}"),
+                )
 
-            asset.add_line(
-                name="strength",
-                line=base.strength,
-            )
+            
 
     def order(
         self,
@@ -156,14 +187,8 @@ class Strategy(metaclass=ABCMeta):
         thresh: float = _DEFAULT_THRESH,
         method: str = _METHOD["V"],
     ):
-    
-        position = self.__broker.get_position(data.ticker)
-        
-        if position is None: 
-            position = Position(
-                data = data,
-                method = method,
-            )
+
+        equity = self.__broker[0]
 
         
 

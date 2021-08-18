@@ -19,7 +19,8 @@ _DEFAULT_BUFFER: int = int(os.getenv("DEF_BUFFER", "200"))
 _DEFAULT_STEP: int = int(os.getenv("DEF_STEP", "1"))
 _DEFAULT_SDATE: date = eval(os.getenv("DEF_SDATE", "date(2005,1,1)"))
 _DEFAULT_EDATE: date = eval(os.getenv("DEF_EDATE", "date.today()"))
-_DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "20/100"))
+_DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "0.2"))
+_DEFAULT_VPARAM: float = float(os.getenv("DEF_VPARAM", "0.05"))
 
 _MODE = dict(
     V="VECTORIZED",
@@ -92,6 +93,11 @@ _PMETHOD = dict(
     RANK="RANKING",
     ROLL="ROLLING",
     VERT="VERTICE",
+)
+
+_VMETHOD = dict(
+    STD = "STD",
+    EWMA = "EWMA",
 )
 
 _RATESLIKE = (
