@@ -48,7 +48,7 @@ class Line(np.ndarray):
         return super().__getitem__(key)
 
     def __repr__(self):
-        return f"<Line({self.array[:self.__buffer+1]})>"
+        return repr(self.series)
 
     def __len__(self):
         return len(self.__array)
@@ -66,6 +66,13 @@ class Line(np.ndarray):
     @property
     def array(self) -> Sequence:
         return self.__array
+
+    @property
+    def series(self) -> pd.Series:
+        arr = self.array[self.__buffer:]
+        idx = np.arange(self.__buffer, len(self))
+
+        return pd.Series(arr, idx)
 
 
 class Data:
@@ -167,7 +174,7 @@ class Data:
     def add_line(self, name: str, line: Line):
 
         if not isinstance(line, Line):
-            msg = "signal must be Line Type"
+            msg = f"{name} must be Line Type"
             raise TypeError(msg)
 
         self.__lines.update(

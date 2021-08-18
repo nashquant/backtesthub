@@ -3,7 +3,7 @@
 from backtesthub.pipeline import Pipeline
 import pandas as pd
 
-from datetime import date, datetime
+from datetime import date
 from numbers import Number
 from typing import Dict, Sequence, Union
 
@@ -11,10 +11,10 @@ from .broker import Broker
 from .strategy import Strategy
 from .calendar import Calendar
 
-from .utils.bases import Line, Base, Asset, Hedge
+from .utils.bases import Base, Asset, Hedge
 
 from .utils.config import (
-    _PAIRS,
+    _DEFAULT_PAIRS,
     _DEFAULT_BUFFER,
 )
 
@@ -119,7 +119,7 @@ class Engine:
             index=self.index,
         )
 
-        if ticker.upper() in _PAIRS:
+        if ticker.upper() in _DEFAULT_PAIRS:
             self.__currs.update(
                 {ticker: base},
             )

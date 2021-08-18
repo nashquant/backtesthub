@@ -39,7 +39,10 @@ class Broker:
         self.__positions: Dict[str, Position] = {}
         self.__buffer: int = _DEFAULT_BUFFER
 
-    def order(
+    def next(self):
+        self.__process_orders()
+
+    def new_order(
         self,
         ticker: str,
         size: float,
@@ -50,9 +53,6 @@ class Broker:
 
     def __process_orders(self):
         pass
-
-    def next(self):
-        self.__process_orders()
 
     def __repr__(self):
         kls = self.__class__.__name__

@@ -2,8 +2,6 @@
 
 from numbers import Number
 from typing import Union, Optional
-
-from .utils.config import _METHOD
 from .utils.bases import Asset, Hedge
 
 class Position:
@@ -15,34 +13,22 @@ class Position:
     def __init__(
         self,
         data: Union[Asset, Hedge],
-        method: Optional[str] = "V"
     ):
-        if method not in _METHOD:
-            msg = "Method not recognized"
-            raise NotImplementedError(msg)
-
-        self.__method = _METHOD[method]
 
         if not isinstance(data, (Asset, Hedge)):
             msg = "Invalid Data Type"
             raise TypeError(msg)
             
         self.__data = data
-        
-        self.__size: Number = None
-        self.__signal = None
-        self.__target = None
-        self.__avgprc = None
+        self.__size = 0
 
     def __repr__(self):
         kls = self.__class__.__name__
         tck = self.__data.ticker
-        sze = self.__size or ""
-        sig = self.__signal or ""
-        avg = self.__avgprc or ""
-        tgt = self.__target or ""
+        sig = self.__data.signal[0]
+        siz = self.__size
 
-        log = f"{kls}(Ticker: {tck}, Size: {sze}, Signal: {sig}, Avg Prc: {avg}, Target: {tgt})"
+        log = f"{kls}(Ticker: {tck}, Size: {siz}, Signal: {sig})"
 
         return log
 
@@ -70,7 +56,7 @@ class Position:
         
         """
         
-        return self.__signal
+        return self.__data.signal[0]
 
     @property
     def ticker(self) -> float:
@@ -81,4 +67,4 @@ class Position:
         
         """
         
-        return self.__ticker
+        return self.__data.ticker

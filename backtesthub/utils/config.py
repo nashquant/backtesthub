@@ -19,6 +19,7 @@ _DEFAULT_BUFFER: int = int(os.getenv("DEF_BUFFER", "200"))
 _DEFAULT_STEP: int = int(os.getenv("DEF_STEP", "1"))
 _DEFAULT_SDATE: date = eval(os.getenv("DEF_SDATE", "date(2005,1,1)"))
 _DEFAULT_EDATE: date = eval(os.getenv("DEF_EDATE", "date.today()"))
+_DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "20/100"))
 
 _MODE = dict(
     V="VECTORIZED",
@@ -44,7 +45,7 @@ _CURR = (
     "TRY",
 )
 
-_PAIRS = [
+_DEFAULT_PAIRS = [
     f"{cur1}{cur2}"
     for cur1, cur2 in itertools.product(_CURR, _CURR)
     if not cur1 == cur2
