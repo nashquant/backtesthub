@@ -153,11 +153,13 @@ class Strategy(metaclass=ABCMeta):
         if not assets:
             assets = self.assets
 
+        schema = set(base.schema)
+
         for asset in assets.values():
             for line in lines:
                 line = line.lower()
                 
-                if not line in set(base.schema):
+                if not line in schema:
                     continue
 
                 asset.add_line(
