@@ -12,8 +12,11 @@ from .strategy import Strategy
 from .calendar import Calendar
 
 from .utils.bases import Line, Base, Asset, Hedge
-from .utils.config import _CURR, _PAIRS
-from .utils.config import _DEFAULT_CASH, _DEFAULT_CURRENCY
+
+from .utils.config import (
+    _PAIRS,
+    _DEFAULT_BUFFER,
+)
 
 
 class Engine:
@@ -70,7 +73,7 @@ class Engine:
         self.__currs = {}
         self.__carry = {}
         self.__universe = []
-        
+
         self.__broker: Broker = Broker(
             index=self.__index,
         )
@@ -214,7 +217,7 @@ class Engine:
         self.__pipeline.init()
         self.__strategy.init()
 
-        for self.dt in self.__index:
+        for self.dt in self.loop:
 
             self.__broker.next()
             self.__strategy.next()
@@ -229,13 +232,16 @@ class Engine:
             for data in self.__universe:
                 data.next()
 
-
     def __len__(self) -> int:
         return len(self.__index)
 
     @property
     def index(self) -> Sequence[date]:
         return self.__index
+
+    @property
+    def loop(self) -> Sequence[date]:
+        return self.__index[_DEFAULT_BUFFER:]
 
     @property
     def strategy(self) -> Strategy:

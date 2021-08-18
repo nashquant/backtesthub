@@ -51,7 +51,7 @@ class Line(np.ndarray):
         return f"<Line({self.array[:self.__buffer+1]})>"
 
     def __len__(self):
-        return len(self)
+        return len(self.__array)
 
     def __next(self, step: int = _DEFAULT_STEP):
         self.__buffer = min(
@@ -128,6 +128,7 @@ class Data:
 
         self.__lines = {l.lower(): Line(arr) for l, arr in data.items()}
         self.__lines["__index"] = Line(array = index)
+        self.__buffer = _DEFAULT_BUFFER
         self.__df = data
 
     def __repr__(self):

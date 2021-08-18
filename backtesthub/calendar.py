@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from holidays import BR, US
 from datetime import date, datetime
 from typing import Optional, Sequence
 from pandas import bdate_range
@@ -12,10 +13,19 @@ class Calendar:
         self,
         start: date = _DEFAULT_SDATE,
         end: date = _DEFAULT_EDATE,
-        holidays: Sequence[date] = [], 
+        holidays: Sequence[date] = [],
+        country: str = "BR", 
     ):
         self.__sdate = start
         self.__edate = end
+        
+        if not holidays:
+            if country.upper() in ["BR", "BRAZIL"]:
+                calendar = BR(state='SP')
+            elif country.upper() in ["US", "USA", "UNITED STATES"]:
+                calendar = US(state='NY')
+        
+        self.__holidays = calendar[self.__sdate:self.__edate]
 
         if isinstance(self.__sdate, datetime):
             self.__sdate = self.__sdate.date()
@@ -39,10 +49,14 @@ class Calendar:
             msg = "Sequence `holidays` must have date elements"
             raise TypeError(msg)
 
+        weekmask = "Mon Tue Wed Thu Fri"
+
         self.__index: Sequence[date] = bdate_range(
             start=self.__sdate,
             end=self.__edate,
             holidays=self.__holidays,
+            weekmask=weekmask,
+            freq='C',
         )
 
     @property

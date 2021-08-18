@@ -81,24 +81,24 @@ class Pipeline:
             msg = "Simulation Case couldn't be identified"
             raise NotImplementedError(msg)
 
-        if h_rateslike:
-            self.__h_method = _PMETHOD["VERT"]
+        # if h_rateslike:
+        #     self.__h_method = _PMETHOD["VERT"]
 
-        elif h_stocklike and h_multiasset:
-            self.__h_method = _PMETHOD["RANK"]
+        # elif h_stocklike and h_multiasset:
+        #     self.__h_method = _PMETHOD["RANK"]
 
-        elif not h_stocklike and h_multiasset:
-            self.__h_method = _PMETHOD["ROLL"]
-            self.__h_chain = self.build_chain(
-                assets = self.__hedges,
-            )
+        # elif not h_stocklike and h_multiasset:
+        #     self.__h_method = _PMETHOD["ROLL"]
+        #     self.__h_chain = self.build_chain(
+        #         assets = self.__hedges,
+        #     )
 
-        elif h_stocklike and not h_multiasset:
-            self.__h_method = _PMETHOD["BASE"]
+        # elif h_stocklike and not h_multiasset:
+        #     self.__h_method = _PMETHOD["DEFA"]
 
-        else:
-            msg = "Simulation Case couldn't be identified"
-            raise NotImplementedError(msg)
+        # else:
+        #     msg = "Simulation Case couldn't be identified"
+        #     raise NotImplementedError(msg)
 
     def run(
         self,
@@ -106,8 +106,8 @@ class Pipeline:
         old: Sequence[Asset],
     ) -> Sequence[Asset]:
 
-        if self.__method == _PMETHOD["BASE"]:
-            return self.__assets.values()
+        if self.__method == _PMETHOD["DEFA"]:
+            return tuple(self.__assets.values())
 
         if self.__method == _PMETHOD["ROLL"]:
             pass

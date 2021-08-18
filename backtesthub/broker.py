@@ -37,6 +37,7 @@ class Broker:
 
         self.__orders: Dict[str, Order] = {}
         self.__positions: Dict[str, Position] = {}
+        self.__buffer: int = _DEFAULT_BUFFER
 
     def order(
         self,
@@ -71,15 +72,16 @@ class Broker:
     def __getattr__(self, line: str):
         return self.__lines.get(line.lower())
 
+    def __len__(self):
+        return len(self.__index)
+
     def __sync_buffer(func: Callable):
         def wrapper(self, *args, **kwargs):
 
             func(self, *args, **kwargs)
 
             for line in self.__lines.values():
-                line._Line__next(
-                    buffer=self.__buffer,
-                )
+                line._Line__next()
 
         return wrapper
 
