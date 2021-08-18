@@ -14,6 +14,7 @@ dotenv_path = os.path.join(
 dotenv.load_dotenv(dotenv_path)
 
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
+_DEFAULT_VOLATILITY: float = float(os.getenv("DEF_VOL", "0.1"))
 _DEFAULT_CASH: float = float(os.getenv("DEF_CASH", "10e6"))
 _DEFAULT_BUFFER: int = int(os.getenv("DEF_BUFFER", "200"))
 _DEFAULT_STEP: int = int(os.getenv("DEF_STEP", "1"))
@@ -79,9 +80,11 @@ _COMMTYPE = dict(
 )
 
 _METHOD = dict(
-    V="VOLATILITY",
-    F="FIXED",
+    SIZE="SIZE",
+    EXPO = "EXPO",
+    EWMA = "EWMA",
 )
+
 
 _HMETHOD = dict(
     E="EXPOSITION",
@@ -93,11 +96,6 @@ _PMETHOD = dict(
     RANK="RANKING",
     ROLL="ROLLING",
     VERT="VERTICE",
-)
-
-_VMETHOD = dict(
-    STD = "STD",
-    EWMA = "EWMA",
 )
 
 _RATESLIKE = (

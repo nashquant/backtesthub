@@ -11,9 +11,10 @@ from .utils.checks import derive_params
 from .utils.math import EWMAVolatility
 from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import (
-    _MODE, 
+    _MODE,
     _METHOD,
-    _DEFAULT_THRESH
+    _DEFAULT_THRESH,
+    _DEFAULT_VOLATILITY,
 )
 
 
@@ -93,7 +94,7 @@ class Strategy(metaclass=ABCMeta):
             msg = f"{name}: error in Line length"
             raise ValueError(msg)
 
-        strength = Line(array=ind)
+        indicator = Line(array=ind)
         signal = Line(array=np.sign(ind))
 
         self.__indicators.update(
@@ -106,15 +107,15 @@ class Strategy(metaclass=ABCMeta):
         )
 
         data.add_line(
-            name="strength",
-            line=strength,
+            name="indicator",
+            line=indicator,
         )
 
         ## If volatility is not given, override it with default
         ## Else if volatility is given, either override it with new or pass
 
         if "volatility" not in set(data.schema):
-            self.V(data = data)
+            self.V(data=data)
 
     def V(
         self,
@@ -145,7 +146,7 @@ class Strategy(metaclass=ABCMeta):
         self,
         base: Optional[Base] = None,
         assets: Optional[Dict[str, Asset]] = {},
-        lines: Sequence[str]=["Signal", "Strength","Volatility"],
+        lines: Sequence[str] = ["Signal", "Volatility"],
     ):
 
         if not base:
@@ -158,7 +159,7 @@ class Strategy(metaclass=ABCMeta):
         for asset in assets.values():
             for line in lines:
                 line = line.lower()
-                
+
                 if not line in schema:
                     continue
 
@@ -167,32 +168,67 @@ class Strategy(metaclass=ABCMeta):
                     line=eval(f"base.{line}"),
                 )
 
-            
-
     def order(
         self,
         data: Union[Asset, Hedge],
-        size: float,
+        target: Optional[float] = None,
         price: Optional[float] = None,
+        thresh: float = _DEFAULT_THRESH,
+        method: str = "EWMA",
     ):
+
+        current = self.get_current()
+        equity = self.__broker[0]
+        method = _METHOD[method]
+
+        price = data.close[0] * data.mult
+
+        if method == _METHOD["EWMA"]:
+            
+            signal = data.signal[0]
+
+            vol_target = _DEFAULT_VOLATILITY
+            vol_asset = data.volatility[0]
+            target = vol_asset / vol_target
+
+            size = signal * target * equity / price
+
+        elif method == _METHOD["EXPO"]:
+            assert target is not None
+
+            size = target * equity / price
+
+        elif method == _METHOD["SIZE"]:
+            assert target is not None
+            size = target
+
+        else:
+            msg = "Method still not Implemented"
+            raise NotImplementedError(msg)
+
+        delta = size - current
+
+        if current != 0 and thresh > 0:
+            stimulus = abs(delta) / abs(current)
+            if stimulus < thresh:
+                return
+
         self.__broker.new_order(
             data=data,
             size=size,
             limit=price,
         )
 
-    def order_target(
-        self,
-        data: Union[Asset, Hedge],
-        target: Optional[float] = None,
-        price: Optional[float] = None,
-        thresh: float = _DEFAULT_THRESH,
-        method: str = _METHOD["V"],
-    ):
+    def get_current(self, data: Union[Asset, Hedge]):
 
-        equity = self.__broker[0]
+        if type(data) not in (Asset, Hedge):
+            msg = "Data must be of type Asset/Hedge"
+            raise TypeError(msg)
 
-        
+        position = self.__broker.get_position(data.ticker)
+        size = position.size if position is not None else 0
+
+        return size
 
     @property
     def indicators(self) -> Dict[str, str]:
