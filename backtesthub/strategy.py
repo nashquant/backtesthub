@@ -112,9 +112,9 @@ class Strategy(metaclass=ABCMeta):
         )
 
         ## If volatility is not given, override it with default
-        ## Else if volatility is given, either override it with new or pass
+        ## Else if volatility is given, either override old one or pass
 
-        if "volatility" not in set(data.schema):
+        if "volatility" not in set(data.lines):
             self.V(data=data)
 
     def V(
@@ -181,7 +181,7 @@ class Strategy(metaclass=ABCMeta):
         equity = self.__broker[0]
         method = _METHOD[method]
 
-        price = data.close[0] * data.mult
+        price = data.close[0] * data.multiplier
 
         if method == _METHOD["EWMA"]:
             

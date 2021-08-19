@@ -23,9 +23,9 @@ class Order:
         self.__isbuy = self.__size > 0
         self.__issell = self.__size < 0
 
-        if not isinstance(data, Asset) and not isinstance(data, Hedge):
+        if type(data) not in (Asset, Hedge):
             msg = "Order `data` must be either an Asset or a Hedge"
-            raise ValueError(msg)
+            raise TypeError(msg)
             
         if not self.__isbuy and not self.__issell:
             msg = "Order `size` must be an non-zero number"
@@ -40,27 +40,33 @@ class Order:
             raise NotImplementedError(msg)
 
         self.__ticker = data.ticker
-        self.__issdt = self.dt
+        self.__issue_date = data.dt
 
     def __repr__(self):
         kls = self.__class__.__name__
         tck = self.__ticker
-        typ = self.__otype
         sze = self.__size
         sts = self.__status
-        idt = self.__issdt
+        idt = self.__issue_date.isoformat()
 
-        log = f"{kls}(Ticker: {tck}, Size: {sze}, Status: {sts}, Issued: {idt}, Type: {typ})"
+        log = f"{kls}(Ticker: {tck}, Size: {sze}, Status: {sts}, Issued: {idt})"
 
         return log
 
-    def __log(self, txt: str):
-        msg = f"({self.dt.isoformat()}), {txt}"
-        print(msg)
+    def execute(self, ):
+        self.__status = _STATUS["E"]
+
+
+    def cancel(self, ):
+        self.__status = _STATUS["C"]
 
     @property
-    def issdt(self) -> date:
-        return self.__issdt
+    def issue_date(self) -> date:
+        return self.__issue_date
+
+    @property
+    def status(self) -> str:
+        return self.__status
 
     @property
     def size(self) -> Number:

@@ -1,43 +1,46 @@
 #! /usr/bin/env python3
 
+import math
 import pandas as pd
 from numbers import Number
-from math import sqrt
-from typing import Union
+from typing import Union, Sequence
 
-from backtesthub.utils import Base, Asset, Hedge
-from backtesthub.utils.config import (
+from holidays import BZ
+from datetime import date
+from workdays import networkdays
+
+from .bases import Base, Asset, Hedge
+from .config import (
     _DEFAULT_VPARAM,
-    _VMETHOD,
 )
+
 
 def EWMA(
     data: Union[Base, Asset, Hedge],
-    method: str = _VMETHOD["EWMA"],
     alpha: float = _DEFAULT_VPARAM,
 ) -> pd.Series:
 
     if not type(data) in (Base, Asset, Hedge):
-        msg ="Wrong data type input"
+        msg = "Wrong data type input"
         raise TypeError(msg)
 
     schema = set(data.schema)
-    
+
     if "close" not in schema:
-        msg="Close not in Schema"
+        msg = "Close not in Schema"
         raise ValueError(msg)
 
-    return data.close.series.ewm(alpha = alpha).mean()
+    return data.close.series.ewm(alpha=alpha).mean()
+
 
 def EWMAVolatility(
     data: Union[Base, Asset, Hedge],
-    method: str = _VMETHOD["EWMA"],
     alpha: float = _DEFAULT_VPARAM,
-    freq: Number = 252, 
+    freq: Number = 252,
 ) -> pd.Series:
 
     if not type(data) in (Base, Asset, Hedge):
-        msg ="Wrong data type input"
+        msg = "Wrong data type input"
         raise TypeError(msg)
 
     schema = set(data.schema)
@@ -47,7 +50,75 @@ def EWMAVolatility(
     elif "close" in schema:
         returns = data.close.series.pct_change()
     else:
-        msg="Close not in Schema"
+        msg = "Close not in Schema"
         raise ValueError(msg)
 
-    return returns.ewm(alpha = alpha).std() * sqrt(freq)
+    return returns.ewm(alpha=alpha).std() * math.sqrt(freq)
+
+
+def rate2price(
+    data: Union[Asset, Hedge],
+    maturity: date,
+    holidays:Sequence[date] = [],
+):
+
+    """
+    Receives a dataframe (OHLC schemed) to
+    make rate-price transformation, based
+    upon a given set of holidays.
+
+    <<<ATTENTION: CODE NEEDS REFACTORING>>>>
+    <<<REMINDER: CHANGE HIGH-LOW ORDER>>>>>>
+
+    """
+
+    df = data.df
+    schema = data.schema
+
+    pu = (1 + df.divide(100)).pow(1 / 252)
+    pu["days"] = [t.date() for t in pu.index]
+
+    pu["days"] = pu["days"].apply(
+        lambda dt: networkdays(
+            dt,
+            maturity,
+            holidays,
+        )
+    )
+
+    pu["mult"] = float("100000")
+
+    for col in schema:
+
+        pu[col] = pu["mult"].div(pu[col].pow(pu["days"] + 1))
+
+    return pu[schema]
+
+
+def fill_OHLC(df: pd.DataFrame) -> pd.DataFrame:
+
+    if "close" not in df.columns:
+        txt = "df must have at least CLOSE as column"
+        raise ValueError(txt)
+
+    if "open" in df.columns:
+        df.loc[df.open.isna(), "open"] = df.loc[df.open.isna(), "close"]
+    else:
+        df["open"] = df["close"]
+
+    if "high" in df.columns:
+        df.loc[df.high.isna(), "high"] = df.loc[df.high.isna(), ["open", "close"]].max(
+            axis=1
+        )
+    else:
+        df["high"] = df[["open", "close"]].max(axis=1)
+
+    if "low" in df.columns:
+        df.loc[df.low.isna(), "low"] = df.loc[df.low.isna(), ["open", "close"]].min(
+            axis=1
+        )
+
+    else:
+        df["low"] = df[["open", "close"]].min(axis=1)
+
+    return df

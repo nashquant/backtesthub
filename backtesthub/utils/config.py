@@ -14,6 +14,10 @@ dotenv_path = os.path.join(
 dotenv.load_dotenv(dotenv_path)
 
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
+_DEFAULT_MARGIN: float = float(os.getenv("DEF_MARGIN", "0"))
+_DEFAULT_SLIPPAGE: float = float(os.getenv("DEF_SLIP", "2e-04"))
+_DEFAULT_SCOMMISSION: float = float(os.getenv("DEF_COMM", "10e-04"))
+_DEFAULT_FCOMMISSION: float = float(os.getenv("DEF_COMM", "10"))
 _DEFAULT_VOLATILITY: float = float(os.getenv("DEF_VOL", "0.1"))
 _DEFAULT_CASH: float = float(os.getenv("DEF_CASH", "10e6"))
 _DEFAULT_BUFFER: int = int(os.getenv("DEF_BUFFER", "200"))
@@ -75,8 +79,8 @@ _SCHEMA = dict(
 )
 
 _COMMTYPE = dict(
-    S="PERC",
-    F="ABS",
+    STOCKS="PERC",
+    FUTURES="ABS",
 )
 
 _METHOD = dict(

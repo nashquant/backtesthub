@@ -2,16 +2,19 @@
 
 from numbers import Number
 from datetime import date
-from typing import Dict, Callable, Optional, Sequence
+from warnings import warn
+from typing import Dict, Callable, Optional, Sequence, Union
 
 from .order import Order
 from .position import Position
 
-from .utils.bases import Line
+from .utils.bases import Line, Asset, Hedge
 from .utils.config import (
     _DEFAULT_BUFFER,
     _DEFAULT_CASH,
     _DEFAULT_STEP,
+    _COMMTYPE,
+    _STATUS,
 )
 
 
@@ -25,9 +28,7 @@ class Broker:
         self.__buffer = _DEFAULT_BUFFER
         self.__lines: Dict[str, Line] = {}
 
-        self.__lines["__index"] = Line(
-            array=index
-        )
+        self.__lines["__index"] = Line(array=index)
         self.__lines["cash"] = Line(
             array=[_DEFAULT_CASH] * len(index),
         )
@@ -36,31 +37,69 @@ class Broker:
         )
 
         self.__orders: Dict[str, Order] = {}
+        self.__cancels: Sequence[Order] = []
+        self.__executed: Sequence[Order] = []
         self.__positions: Dict[str, Position] = {}
         self.__buffer: int = _DEFAULT_BUFFER
 
     def next(self):
-        self.__process_orders()
+        for order in self.__orders.values():
+            status = order.status
+            if status == _STATUS["W"]:
+                self.execute_order(order)
+
 
     def new_order(
         self,
-        ticker: str,
-        size: float,
-        limit: float,
+        data: Union[Asset, Hedge],
+        size: Optional[float] = 0,
+        limit: Optional[float] = None,
     ):
-        order = Order(ticker, size, limit)
-        self.__orders.update({ticker: order})
+        pending = self.__orders.get(data.ticker)
 
-    def __process_orders(self):
-        pass
+        if pending is not None:
+            self.cancel_order(ticker=data.ticker)
+
+        order = Order(data.ticker, size, limit)
+        self.__orders.update({data.ticker: order})
+
+    def execute_order(
+        self,
+        order: Order
+    ):
+        cash = self.cash
+        data = order.data
+        margin = data.margin
+        comm = data.commission
+        commtype = data.commtype
+
+        if commtype == _COMMTYPE["STOCKS"]:
+            pass
+        
+
+
+
+    def cancel_order(
+        self,
+        ticker: str,
+    ):
+        cancel = self.__orders.pop(ticker, None)
+        if cancel is None: 
+            return
+        
+        if cancel.status == _STATUS["W"]:
+            warn(f"Order cancelled: {ticker}")
+
+        cancel.status = _STATUS["C"]
+        self.__cancels.append(cancel)
 
     def __repr__(self):
         kls = self.__class__.__name__
         pos = {k: _pos.size for k, _pos in self.__positions.items()}
         ord = {k: _ord.size for k, _ord in self.__orders.items()}
 
-        csh = self.cash[0]
-        eqt = self.equity[0]
+        csh = self.cash
+        eqt = self.equity
 
         log = f"{kls}(Cash: {csh}, Equity: {eqt}, Positions: {pos}, Orders: {ord})"
 
@@ -97,6 +136,14 @@ class Broker:
 
     def get_orders(self, ticker: str) -> Optional[Position]:
         return self.__orders.get(ticker)
+
+    @property
+    def cash(self) -> Number:
+        return self.__lines['cash'][0]
+
+    @property
+    def equity(self) -> Number:
+        return self.__lines['equity'][0]
 
     @property
     def positions(self) -> Dict[str, Position]:

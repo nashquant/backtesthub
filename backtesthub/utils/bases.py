@@ -8,9 +8,19 @@ from datetime import date
 from typing import Callable, Optional, Sequence
 
 from .checks import derive_asset
-from .config import _RATESLIKE
-from .config import _HMETHOD, _COMMTYPE, _CURR
-from .config import _DEFAULT_STEP, _DEFAULT_BUFFER
+from .config import (
+    _DEFAULT_STEP,
+    _DEFAULT_BUFFER,
+    _DEFAULT_CURRENCY,
+    _DEFAULT_MARGIN,
+    _DEFAULT_SLIPPAGE,
+    _DEFAULT_SCOMMISSION,
+    _DEFAULT_FCOMMISSION,
+    _HMETHOD,
+    _COMMTYPE,
+    _RATESLIKE,
+    _CURR,
+)
 
 
 class Line(np.ndarray):
@@ -69,7 +79,7 @@ class Line(np.ndarray):
 
     @property
     def series(self) -> pd.Series:
-        arr = self.array[self.__buffer:]
+        arr = self.array[self.__buffer :]
         idx = np.arange(self.__buffer, len(self))
 
         return pd.Series(arr, idx)
@@ -134,7 +144,7 @@ class Data:
             index = tuple(data.index)
 
         self.__lines = {l.lower(): Line(arr) for l, arr in data.items()}
-        self.__lines["__index"] = Line(array = index)
+        self.__lines["__index"] = Line(array=index)
         self.__buffer = _DEFAULT_BUFFER
         self.__df = data
 
@@ -190,6 +200,10 @@ class Data:
         return self.__df
 
     @property
+    def schema(self) -> Sequence[str]:
+        return tuple(self.df.columns)
+
+    @property
     def buffer(self) -> int:
         return self.__buffer
 
@@ -198,7 +212,7 @@ class Data:
         return self.__lines["__index"]
 
     @property
-    def schema(self) -> Sequence[str]:
+    def lines(self) -> Sequence[str]:
         lines = self.__lines.keys()
         return tuple(l for l in lines if not l.startswith("__"))
 
@@ -208,9 +222,9 @@ class Base(Data):
     """
 
     Base extends `Data` to create an
-    unique asset class that is intended 
-    to hold asset/price data that is not 
-    supposed to be used for trading purposes, 
+    unique asset class that is intended
+    to hold asset/price data that is not
+    supposed to be used for trading purposes,
     but rather assets that are used to generate
     signals, calculate currency conversion,
     and stuff like that.
@@ -226,10 +240,7 @@ class Base(Data):
         data: pd.DataFrame,
         index: Sequence[date] = None,
     ):
-        super().__init__(
-            data=data,
-            index=index
-        )
+        super().__init__(data=data, index=index)
         self.__ticker = ticker
 
     @property
@@ -295,15 +306,17 @@ class Asset(Base):
 
     def config(
         self,
-        comm: Number = 0,
-        margin: Number = 1,
-        mult: Optional[Number] = None,
-        currency: str = "BRL",
+        commission: Number = _DEFAULT_SCOMMISSION,
+        slippage: Number = _DEFAULT_SLIPPAGE,
+        margin: Number = _DEFAULT_MARGIN,
+        currency: str = _DEFAULT_CURRENCY,
+        multiplier: Optional[Number] = None,
     ):
-        if comm >= 0:
-            self.__comm = comm
+
+        if slippage >= 0:
+            self.__slippage = slippage
         else:
-            msg = "Invalid value for comm"
+            msg = "Invalid value for slippage"
             raise ValueError(msg)
 
         if margin >= 0:
@@ -316,29 +329,31 @@ class Asset(Base):
             msg = "Invalid value for currency"
             raise ValueError(msg)
 
-        if mult is None:
-            self.__mult = 1
-            self.__curr = currency
+        if multiplier is None:
+            self.__commtype = _COMMTYPE["STOCKS"]
+            self.__commission = _DEFAULT_SCOMMISSION
+            self.__multiplier = 1
+            self.__currency = currency
             self.__margin = margin
+
             self.__stocklike = True
             self.__rateslike = False
             self.__asset = self.__ticker
-            self.__commtype = _COMMTYPE["S"]
 
         else:
-            self.__mult = mult
-            
-            self.__curr = currency
+            self.__commtype = _COMMTYPE["FUTURES"]
+            self.__commission = _DEFAULT_FCOMMISSION
+            self.__multiplier = multiplier
+            self.__currency = currency
             self.__margin = margin
+
             self.__stocklike = False
             self.__asset = derive_asset(self.__ticker)
             self.__rateslike = self.__asset in _RATESLIKE
-            self.__commtype = _COMMTYPE["F"]
 
             if self.__maturity is None:
-                msg="Maturity is required for Future-Like assets"
+                msg = "Maturity is required for Future-Like assets"
                 ValueError(msg)
-            
 
     def adjust(self):
         pass
@@ -348,12 +363,12 @@ class Asset(Base):
         return self.__asset
 
     @property
-    def mult(self) -> Number:
-        return self.__mult
+    def multiplier(self) -> Number:
+        return self.__multiplier
 
     @property
-    def curr(self) -> str:
-        return self.__curr
+    def currency(self) -> str:
+        return self.__currency
 
     @property
     def stocklike(self) -> bool:
@@ -364,16 +379,20 @@ class Asset(Base):
         return self.__rateslike
 
     @property
-    def comm(self) -> Number:
-        return self.__comm
+    def slippage(self) -> Number:
+        return self.__slippage
+
+    @property
+    def commission(self) -> Number:
+        return self.__commission
 
     @property
     def commtype(self) -> str:
         return self.__commtype
 
     @property
-    def levg(self) -> Number:
-        return 1 / self.__margin
+    def margin(self) -> Number:
+        return self.__margin
 
     @property
     def maturity(self) -> date:
@@ -405,7 +424,7 @@ class Hedge(Asset):
         hmethod: str = _HMETHOD["E"],
         asset: Optional[str] = None,
         maturity: Optional[date] = None,
-        **commkwargs
+        **commkwargs,
     ):
         super().__init__(
             self,
