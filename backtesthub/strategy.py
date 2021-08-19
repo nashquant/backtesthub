@@ -7,14 +7,13 @@ from typing import Callable, Dict, Union, Optional, Sequence
 
 from .broker import Broker
 
-from .utils.checks import derive_params
+from .indicators import Default
 from .utils.math import EWMAVolatility
 from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import (
-    _MODE,
-    _METHOD,
-    _DEFAULT_THRESH,
     _DEFAULT_VOLATILITY,
+    _DEFAULT_THRESH,
+    _METHOD,
 )
 
 
@@ -22,18 +21,15 @@ class Strategy(metaclass=ABCMeta):
     def __init__(
         self,
         broker: Broker,
-        bases: Dict[str, Optional[Base]],
-        assets: Dict[str, Optional[Asset]],
-        hedges: Dict[str, Optional[Hedge]],
+        bases: Dict[str, Base],
+        assets: Dict[str, Asset],
+        hedges: Dict[str, Hedge],
     ):
 
         self.__broker = broker
         self.__bases = bases
         self.__assets = assets
         self.__hedges = hedges
-
-        self.__mode: str = _MODE["V"]
-        self.__indicators: Dict[str, str] = {}
 
     @abstractmethod
     def init():
@@ -65,8 +61,8 @@ class Strategy(metaclass=ABCMeta):
 
     def I(
         self,
-        func: Callable,
-        data: Union[Base, Asset],
+        data: Union[Base, Asset, Hedge],
+        func: Callable = Default,
         *args: Union[str, int, float],
     ):
 
@@ -75,31 +71,18 @@ class Strategy(metaclass=ABCMeta):
 
         """
 
-        ticker = data.ticker
-        params = derive_params(args)
-        name = f"{func.__name__}({params})"
+        try:
+            ind = func(data, *args)
 
-        if self.__mode == _MODE["V"]:
-            try:
-                ind = func(data, *args)
-
-            except Exception as e:
-                raise Exception(e)
-
-        else:
-            msg = f"`Mode` {self.__mode} not implemented"
-            raise NotImplementedError(msg)
+        except Exception as e:
+            raise Exception(e)
 
         if not len(data) == len(ind):
-            msg = f"{name}: error in Line length"
+            msg = f"Line length not compatible"
             raise ValueError(msg)
 
         indicator = Line(array=ind)
         signal = Line(array=np.sign(ind))
-
-        self.__indicators.update(
-            {ticker: name},
-        )
 
         data.add_line(
             name="signal",
@@ -111,25 +94,15 @@ class Strategy(metaclass=ABCMeta):
             line=indicator,
         )
 
-        ## If volatility is not given, override it with default
-        ## Else if volatility is given, either override old one or pass
-
         if "volatility" not in set(data.lines):
             self.V(data=data)
 
     def V(
         self,
+        data: Union[Base, Asset, Hedge],
         func: Callable = EWMAVolatility,
-        data: Optional[Union[Base, Asset]] = None,
         *args: Union[str, int, float],
     ):
-
-        if data is None:
-            if self.bases.get("base") is not None:
-                data = self.bases.get("base")
-            else:
-                msg = "Cannot work without data"
-                raise ValueError(msg)
 
         try:
             vol = func(data, *args)
@@ -144,18 +117,15 @@ class Strategy(metaclass=ABCMeta):
 
     def broadcast(
         self,
-        base: Optional[Base] = None,
-        assets: Optional[Dict[str, Asset]] = {},
-        lines: Sequence[str] = ["Signal", "Volatility"],
+        base: Base,
+        assets: Dict[str, Asset],
+        lines: Sequence[str] = [],
     ):
 
-        if not base:
-            base = self.bases.get("base")
-        if not assets:
-            assets = self.assets
-
         schema = set(base.schema)
-
+        if not lines: 
+            lines = ["signal", "volatility"]
+            
         for asset in assets.values():
             for line in lines:
                 line = line.lower()
@@ -206,7 +176,10 @@ class Strategy(metaclass=ABCMeta):
             msg = "Method still not Implemented"
             raise NotImplementedError(msg)
 
-        delta = size - current
+        if size==current:
+            return
+        else:
+            delta = size - current
 
         if current != 0 and thresh > 0:
             stimulus = abs(delta) / abs(current)
@@ -215,7 +188,7 @@ class Strategy(metaclass=ABCMeta):
 
         self.__broker.new_order(
             data=data,
-            size=size,
+            size=delta,
             limit=price,
         )
 
@@ -240,12 +213,12 @@ class Strategy(metaclass=ABCMeta):
 
     @property
     def bases(self) -> Dict[str, Base]:
-        return {k: v for k, v in self.__bases.items() if v is not None}
+        return self.__bases
 
     @property
     def assets(self) -> Dict[str, Asset]:
-        return {k: v for k, v in self.__assets.items() if v is not None}
+        return self.__assets
 
     @property
     def hedges(self) -> Dict[str, Hedge]:
-        return {k: v for k, v in self.__hedges.items() if v is not None}
+        return self.__hedges

@@ -20,12 +20,13 @@ class Calendar:
         self.__edate = end
         
         if not holidays:
+            years = [y for y in range(start.year, end.year+20)]
             if country.upper() in ["BR", "BRAZIL"]:
-                calendar = BR(state='SP')
+                calendar = BR(state='SP', years = years)
             elif country.upper() in ["US", "USA", "UNITED STATES"]:
-                calendar = US(state='NY')
+                calendar = US(state='NY', years = years)
         
-        self.__holidays = calendar[self.__sdate:self.__edate]
+        self.__holidays = tuple(calendar.keys())
 
         if isinstance(self.__sdate, datetime):
             self.__sdate = self.__sdate.date()

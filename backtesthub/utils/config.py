@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-## CARTESIAN PRODUCT
 import sys, os
 import itertools
 import dotenv
@@ -16,8 +15,8 @@ dotenv.load_dotenv(dotenv_path)
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
 _DEFAULT_MARGIN: float = float(os.getenv("DEF_MARGIN", "0"))
 _DEFAULT_SLIPPAGE: float = float(os.getenv("DEF_SLIP", "2e-04"))
-_DEFAULT_SCOMMISSION: float = float(os.getenv("DEF_COMM", "10e-04"))
-_DEFAULT_FCOMMISSION: float = float(os.getenv("DEF_COMM", "10"))
+_DEFAULT_SCOMMISSION: float = float(os.getenv("DEF_SCOMM", "10e-04"))
+_DEFAULT_FCOMMISSION: float = float(os.getenv("DEF_FCOMM", "10"))
 _DEFAULT_VOLATILITY: float = float(os.getenv("DEF_VOL", "0.1"))
 _DEFAULT_CASH: float = float(os.getenv("DEF_CASH", "10e6"))
 _DEFAULT_BUFFER: int = int(os.getenv("DEF_BUFFER", "200"))
@@ -27,10 +26,6 @@ _DEFAULT_EDATE: date = eval(os.getenv("DEF_EDATE", "date.today()"))
 _DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "0.2"))
 _DEFAULT_VPARAM: float = float(os.getenv("DEF_VPARAM", "0.05"))
 
-_MODE = dict(
-    V="VECTORIZED",
-    R="RECURSIVE",
-)
 
 _CURR = (
     "BRL",
@@ -79,8 +74,8 @@ _SCHEMA = dict(
 )
 
 _COMMTYPE = dict(
-    STOCKS="PERC",
-    FUTURES="ABS",
+    PERC="PERC",
+    ABS="ABS",
 )
 
 _METHOD = dict(
@@ -91,30 +86,18 @@ _METHOD = dict(
 
 
 _HMETHOD = dict(
-    E="EXPOSITION",
-    B="BETA",
+    EXPO="EXPOSITION",
+    BETA="BETA",
 )
 
-_PMETHOD = dict(
-    DEFA="DEFAULT",
-    RANK="RANKING",
-    ROLL="ROLLING",
-    VERT="VERTICE",
+_STATUS = dict(
+    WAIT="WAITING",
+    EXEC="EXECUTED",
+    CANC="CANCELLED",
 )
 
 _RATESLIKE = (
     "DI1",
     "DAP",
     "DDI",
-)
-
-_OTYPE = {
-    "M": "MARKET",
-    "L": "LIMIT",
-}
-
-_STATUS = dict(
-    W="WAITING",
-    E="EXECUTED",
-    C="CANCELLED",
 )

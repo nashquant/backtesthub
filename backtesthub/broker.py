@@ -13,7 +13,6 @@ from .utils.config import (
     _DEFAULT_BUFFER,
     _DEFAULT_CASH,
     _DEFAULT_STEP,
-    _COMMTYPE,
     _STATUS,
 )
 
@@ -45,9 +44,8 @@ class Broker:
     def next(self):
         for order in self.__orders.values():
             status = order.status
-            if status == _STATUS["W"]:
-                self.execute_order(order)
-
+            if status == _STATUS["WAIT"]:
+                self.__execute_order(order)
 
     def new_order(
         self,
@@ -58,39 +56,50 @@ class Broker:
         pending = self.__orders.get(data.ticker)
 
         if pending is not None:
-            self.cancel_order(ticker=data.ticker)
+            self.__cancel_order(ticker=data.ticker)
 
         order = Order(data.ticker, size, limit)
         self.__orders.update({data.ticker: order})
 
-    def execute_order(
-        self,
-        order: Order
-    ):
-        cash = self.cash
-        data = order.data
-        margin = data.margin
-        comm = data.commission
-        commtype = data.commtype
+    def __execute_order(self, order: Order):
+        """
+        Margin Requirements are based on
+        executed price for simplicity.
+        More sophisticated methods may
+        be implemented later.
+        """
 
-        if commtype == _COMMTYPE["STOCKS"]:
-            pass
-        
+        required_comm = order.total_comm
+        required_cash = required_comm
 
+        if order.data.margin:
+            expo = self.get_expo(
+                order.data,
+                price=order.exec_price,
+            )
+            total_margin = order.total_margin * expo
+            required_margin = total_margin * self.last_equity
+            
+            required_cash += required_margin
 
+        if required_cash > self.cash:
+            warn(f"{order} requires too much cash!")
 
-    def cancel_order(
+        else:
+            self.__lines["cash"][0]-=required_cash
+
+    def __cancel_order(
         self,
         ticker: str,
     ):
         cancel = self.__orders.pop(ticker, None)
-        if cancel is None: 
+        if cancel is None:
             return
-        
-        if cancel.status == _STATUS["W"]:
+
+        if cancel.status == _STATUS["WAIT"]:
             warn(f"Order cancelled: {ticker}")
 
-        cancel.status = _STATUS["C"]
+        cancel.status = _STATUS["CANC"]
         self.__cancels.append(cancel)
 
     def __repr__(self):
@@ -137,13 +146,32 @@ class Broker:
     def get_orders(self, ticker: str) -> Optional[Position]:
         return self.__orders.get(ticker)
 
+    def get_expo(
+        self,
+        data: Union[Asset, Hedge],
+        price: Optional[Number] = None,
+    ) -> Optional[Number]:
+
+        if price is None:
+            price = data.close[0]
+
+        return price * data.mult / self.last_equity
+
     @property
     def cash(self) -> Number:
-        return self.__lines['cash'][0]
+        return self.__lines["cash"][0]
 
     @property
     def equity(self) -> Number:
-        return self.__lines['equity'][0]
+        return self.__lines["equity"][0]
+
+    @property
+    def last_cash(self) -> Number:
+        return self.__lines["cash"][-1]
+
+    @property
+    def last_equity(self) -> Number:
+        return self.__lines["equity"][-1]
 
     @property
     def positions(self) -> Dict[str, Position]:

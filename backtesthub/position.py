@@ -37,8 +37,7 @@ class Position:
         return log
 
     def check_stop(self):
-        pass
-    
+        raise NotImplementedError()    
 
     @property
     def size(self) -> float:
@@ -46,13 +45,20 @@ class Position:
 
     @property
     def expo(self) -> float:
+        """
+        Exposition as % of equity
+        """
         mult = self.data.multiplier
         price = self.data.close[0]
 
         return self.__size * mult * price 
 
     @property
-    def perc_margin(self) -> float:
+    def margin(self) -> float:
+        """
+        Margin as % of equity
+        """
+
         margin = self.data.margin
         if not margin: return 0
 

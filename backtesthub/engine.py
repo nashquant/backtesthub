@@ -1,13 +1,14 @@
 #! /usr/bin/env python3
 
-from backtesthub.pipeline import Pipeline
 import pandas as pd
 
 from datetime import date
 from numbers import Number
+from collections import OrderedDict
 from typing import Dict, Sequence, Union
 
 from .broker import Broker
+from .pipeline import Pipeline
 from .strategy import Strategy
 from .calendar import Calendar
 
@@ -40,6 +41,7 @@ class Engine:
     def __init__(
         self,
         strategy: Strategy,
+        pipeline: Pipeline,
         calendar: Calendar,
     ):
 
@@ -47,34 +49,31 @@ class Engine:
             msg = "Arg `strategy` must be a `Strategy` subclass!"
             raise TypeError(msg)
 
+        if not (issubclass(pipeline, Pipeline)):
+            msg = "Arg `pipeline` must be a `Pipeline` subclass!"
+            raise TypeError(msg)
+
         if not (isinstance(calendar, Calendar)):
             msg = "Arg `calendar` must be a `Calendar` instance!"
             raise TypeError(msg)
 
-        self.__index = calendar.index
-
-        self.__bases = {
-            "base": None,
-            "h_base": None,
-        }
-
-        self.__case = dict(
-            stocklike=None,
-            rateslike=None,
-            multiasset=None,
-            h_stocklike=None,
-            h_rateslike=None,
-            h_multiasset=None,
-        )
-
-        self.__assets = {}
-        self.__hedges = {}
-        self.__currs = {}
-        self.__carry = {}
-        self.__universe = []
+        self.__index: Sequence[date] = calendar.index
+        self.__bases: Dict[str, Base] = OrderedDict()
+        self.__assets: Dict[str, Asset] = OrderedDict()
+        self.__hedges: Dict[str, Hedge] = OrderedDict()
+        self.__obases: Dict[str, Base] = OrderedDict()
+        self.__currs: Dict[str, Base] = OrderedDict()
+        self.__carry: Dict[str, Base] = OrderedDict()
+        self.__universe: Sequence[str] = list()
 
         self.__broker: Broker = Broker(
             index=self.__index,
+        )
+
+        self.__pipeline: Pipeline = pipeline(
+            bases=self.__bases,
+            assets=self.__assets,
+            hedges=self.__hedges,
         )
 
         self.__strategy: Strategy = strategy(
@@ -82,13 +81,6 @@ class Engine:
             bases=self.__bases,
             assets=self.__assets,
             hedges=self.__hedges,
-        )
-
-        self.__pipeline: Pipeline = Pipeline(
-            bases=self.__bases,
-            assets=self.__assets,
-            hedges=self.__hedges,
-            case=self.__case,
         )
 
     def add_base(
@@ -118,6 +110,10 @@ class Engine:
             index=self.index,
         )
 
+        self.__bases.update(
+            {ticker: base},
+        )
+
         if ticker.upper() in _DEFAULT_PAIRS:
             self.__currs.update(
                 {ticker: base},
@@ -126,17 +122,6 @@ class Engine:
             self.__carry.update(
                 {ticker: base},
             )
-
-        if main:
-            if not hedge:
-                self.__bases.update(
-                    {"base": base},
-                )
-
-            else:
-                self.__bases.update(
-                    {"hbase": base},
-                )
 
     def add_asset(
         self,
@@ -149,19 +134,6 @@ class Engine:
             ticker=ticker,
             index=self.index,
         )
-
-        if self.__case["stocklike"] is None:
-            self.__case["stocklike"] = asset.stocklike
-            self.__case["rateslike"] = asset.rateslike
-            self.__case["multiasset"] = False
-        elif (
-            not self.__case["stocklike"] == asset.stocklike
-            and not self.__case["rateslike"] == asset.rateslike
-        ):
-            msg = "Case not acknowledged as valid"
-            raise ValueError(msg)
-        else:
-            self.__case["multiasset"] = True
 
         if commkwargs:
             asset.config(
@@ -186,19 +158,6 @@ class Engine:
             index=self.index,
         )
 
-        if self.__case["h_stocklike"] is None:
-            self.__case["h_stocklike"] = hedge.stocklike
-            self.__case["h_rateslike"] = hedge.rateslike
-            self.__case["h_multiasset"] = False
-        elif (
-            not self.__case["h_stocklike"] == hedge.stocklike
-            and not self.__case["h_rateslike"] == hedge.rateslike
-        ):
-            msg = "Case not acknowledged as valid"
-            raise ValueError(msg)
-        else:
-            self.__case["multiasset"] = True
-
         if commkwargs:
             hedge.config(
                 **commkwargs,
@@ -218,18 +177,20 @@ class Engine:
 
         for self.dt in self.loop:
 
-            self.__broker.next()
-            self.__strategy.next()
-
-            new = self.__pipeline.run(
+            new = self.__pipeline.next(
                 date=self.dt,
                 old=self.__universe,
             )
 
+            ## << Handle closing positions >> ##
+
             self.__universe = new
 
-            for data in self.__universe:
+            for data in new:
                 data.next()
+
+            self.__broker.next()
+            self.__strategy.next()
 
     def __len__(self) -> int:
         return len(self.__index)
@@ -245,6 +206,18 @@ class Engine:
     @property
     def strategy(self) -> Strategy:
         return self.__strategy
+
+    @property
+    def base(self) -> Base:
+        return self.__bases["base"]
+    
+    @property
+    def h_base(self) -> Base:
+        return self.__bases["h_base"]
+    
+    @property
+    def obases(self) -> Dict[str, Base]:
+        return self.__obases
 
     @property
     def universe(self) -> Sequence[Asset]:

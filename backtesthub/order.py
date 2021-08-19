@@ -5,7 +5,7 @@ from numbers import Number
 
 from typing import Optional, Union
 from .utils.bases import Asset, Hedge
-from .utils.config import _OTYPE, _STATUS
+from .utils.config import _STATUS, _COMMTYPE
 
 class Order:
 
@@ -18,7 +18,7 @@ class Order:
         self.__data = data
         self.__size = size
         self.__limit = limit
-        self.__status = _STATUS["W"]
+        self.__status = _STATUS["WAIT"]
 
         self.__isbuy = self.__size > 0
         self.__issell = self.__size < 0
@@ -31,16 +31,9 @@ class Order:
             msg = "Order `size` must be an non-zero number"
             raise ValueError(msg)
 
-        if self.__limit is None:
-            self.__otype = _OTYPE["M"]
-        elif isinstance(self.__limit, Number):
-            self.__otype = _OTYPE["L"]
-        else:
-            msg = "Couldn't identify order type"
-            raise NotImplementedError(msg)
-
         self.__ticker = data.ticker
-        self.__issue_date = data.dt
+        self.__issue_date = data.date
+        self.__side = 1 if self.__isbuy else -1
 
     def __repr__(self):
         kls = self.__class__.__name__
@@ -53,12 +46,8 @@ class Order:
 
         return log
 
-    def execute(self, ):
-        self.__status = _STATUS["E"]
-
-
-    def cancel(self, ):
-        self.__status = _STATUS["C"]
+    def cancel(self):
+        self.__status = _STATUS["CANC"]
 
     @property
     def issue_date(self) -> date:
@@ -79,5 +68,57 @@ class Order:
     @property
     def dt(self) -> date:
         return self.__data.index[0]
+
+    @property
+    def side(self) -> int:
+        return self.__side
+
+    @property
+    def commission(self) -> Number:
+        comm = self.__data.commission
+        commtype = self.__data.commtype
+
+        if commtype == _COMMTYPE["ABS"]:
+            return comm
+
+        elif commtype == _COMMTYPE["PERC"]:
+            return self.exec_price*comm
+
+    @property
+    def total_comm(self) -> Number:
+        """
+        Commission as absolute value
+        """
+        return self.commission * abs(self.__size)
+
+    @property
+    def total_margin(self) -> Number:
+        """
+        Margin as % of Expo value
+        """
+        return self.__data.margin * abs(self.__size)
+
+    @property
+    def exec_price(self) -> Number:
+
+        """
+        OBS: Some authors limit the
+        value of the executed prices
+        to be between the high/low
+        prices.
+
+        I choose not to do so, because
+        it is more conservative to allow
+        for big slippages, and because 
+        some data lack high and low, 
+        therefore it would underestimate 
+        the potential slippage.
+        """
+        
+        slip = self.__data.slippage
+        open = self.__data.open[0]
+
+        return open * (1+self.side*slip) 
+
 
     

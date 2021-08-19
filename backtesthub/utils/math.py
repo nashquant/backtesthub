@@ -5,7 +5,7 @@ import pandas as pd
 from numbers import Number
 from typing import Union, Sequence
 
-from holidays import BZ
+from holidays import BR
 from datetime import date
 from workdays import networkdays
 
@@ -60,6 +60,7 @@ def rate2price(
     data: Union[Asset, Hedge],
     maturity: date,
     holidays:Sequence[date] = [],
+    contract_size: float = float("10e5"),
 ):
 
     """
@@ -74,6 +75,7 @@ def rate2price(
 
     df = data.df
     schema = data.schema
+    calendar = BR(years = [y for y in range(1990,2050)])
 
     pu = (1 + df.divide(100)).pow(1 / 252)
     pu["days"] = [t.date() for t in pu.index]
@@ -86,10 +88,9 @@ def rate2price(
         )
     )
 
-    pu["mult"] = float("100000")
+    pu["mult"] = contract_size
 
     for col in schema:
-
         pu[col] = pu["mult"].div(pu[col].pow(pu["days"] + 1))
 
     return pu[schema]

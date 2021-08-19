@@ -2,123 +2,63 @@
 
 from datetime import date
 from operator import itemgetter
-from typing import Dict, Sequence, Union
+from typing import Dict, Sequence
+from collections import OrderedDict
+from abc import ABCMeta, abstractmethod
 
-from .utils.bases import Base, Asset, Hedge
-from .utils.config import _PMETHOD
+from .utils.bases import Asset, Hedge
 
 
-class Pipeline:
+class Pipeline(metaclass=ABCMeta):
 
     """
-    Pipeline is responsible for identifying
+    Pipeline is responsible for setting up
     the `simulation case` and recursively
     build a sequence called `universe`, which
     provides, for a given date, the list of
-    all tradeable assets, for every run() call.
+    all tradeable assets.
 
-    This enables interesting features such as
-    the broadcasting of a base signal to multiple
-    assets, rolling operations for futures, etc.
-
-    "Warning": Lots of cases aren't defined yet.
-    We do have support for those:
-
-    1) Base signal + Futures Rolling. - Must feed
-    one base data, and a sequence of futures-like
-    assets.
-
-    2) Rates-like Vertice Trading - Must feed a
-    sequence of rates-like(thus, futures-like too)
-    and a
-
-    3) Single Stocklike - ...
-
-    4) Multi Stocklike - ...
-
-    5) Portfolios - ...
+    The `self.universe` attribute may be either
+    assigned at `init` if it is supposed to be
+    static and defined before the simulation
+    begins. Or it can be dynamically defined
+    as next progresses.
 
     """
 
     def __init__(
         self,
-        bases: Dict[str, Base] = {},
-        assets: Dict[str, Asset] = {},
-        hedges: Dict[str, Hedge] = {},
-        case: Dict[str, bool] = {},
+        assets: Dict[str, Asset] = OrderedDict(),
+        hedges: Dict[str, Hedge] = OrderedDict(),
     ):
-        self.__bases = bases
         self.__assets = assets
         self.__hedges = hedges
-        self.__case = case
 
+    @abstractmethod
     def init(self):
+        """ """
 
-        stocklike = self.__case.get("stocklike")
-        rateslike = self.__case.get("rateslike")
-        multiasset = self.__case.get("multiasset")
+    @abstractmethod
+    def next(self) -> Sequence[Asset]:
+        """ """
 
-        h_stocklike = self.__case.get("h_stocklike")
-        h_rateslike = self.__case.get("h_rateslike")
-        h_multiasset = self.__case.get("h_multiasset")
+    @property
+    def asset(self) -> Asset:
+        return self.__assets.values()[0]
 
-        if rateslike:
-            self.__method = _PMETHOD["VERT"]
+    @property
+    def assets(self) -> Dict[str, Asset]:
+        return self.__assets
 
-        elif stocklike and multiasset:
-            self.__method = _PMETHOD["RANK"]
-
-        elif not stocklike and multiasset:
-            self.__method = _PMETHOD["ROLL"]
-            self.__chain = self.build_chain(
-                assets = self.__assets,
-            )
-
-        elif stocklike and not multiasset:
-            self.__method = _PMETHOD["DEFA"]
-
-        else:
-            msg = "Simulation Case couldn't be identified"
-            raise NotImplementedError(msg)
-
-        # if h_rateslike:
-        #     self.__h_method = _PMETHOD["VERT"]
-
-        # elif h_stocklike and h_multiasset:
-        #     self.__h_method = _PMETHOD["RANK"]
-
-        # elif not h_stocklike and h_multiasset:
-        #     self.__h_method = _PMETHOD["ROLL"]
-        #     self.__h_chain = self.build_chain(
-        #         assets = self.__hedges,
-        #     )
-
-        # elif h_stocklike and not h_multiasset:
-        #     self.__h_method = _PMETHOD["DEFA"]
-
-        # else:
-        #     msg = "Simulation Case couldn't be identified"
-        #     raise NotImplementedError(msg)
-
-    def run(
-        self,
-        date: date,
-        old: Sequence[Asset],
-    ) -> Sequence[Asset]:
-
-        if self.__method == _PMETHOD["DEFA"]:
-            return tuple(self.__assets.values())
-
-        if self.__method == _PMETHOD["ROLL"]:
-            pass
+    @property
+    def hedges(self) -> Dict[str, Hedge]:
+        return self.__hedges
 
     @staticmethod
-    def build_chain(
-        assets: Sequence[Union[Asset,Hedge]],
-    ) ->  Dict[str, date]:
+    def build_chain(self) -> Dict[str, date]:
 
         maturities: Dict[str, date] = {
-            asset.ticker: asset.maturity for asset in assets
+            asset.ticker: asset.maturity for asset in self.__assets
         }
 
         chain: Dict[str, date] = dict(

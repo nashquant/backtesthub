@@ -5,7 +5,7 @@ import pandas as pd
 
 from numbers import Number
 from datetime import date
-from typing import Callable, Optional, Sequence
+from typing import Optional, Sequence
 
 from .checks import derive_asset
 from .config import (
@@ -58,7 +58,7 @@ class Line(np.ndarray):
         return super().__getitem__(key)
 
     def __repr__(self):
-        return repr(self.series)
+        return repr(self.__array[_DEFAULT_BUFFER : self.__buffer + 1])
 
     def __len__(self):
         return len(self.__array)
@@ -79,10 +79,9 @@ class Line(np.ndarray):
 
     @property
     def series(self) -> pd.Series:
-        arr = self.array[self.__buffer :]
-        idx = np.arange(self.__buffer, len(self))
+        idx = np.arange(len(self))
 
-        return pd.Series(arr, idx)
+        return pd.Series(self.array, idx)
 
 
 class Data:
@@ -153,7 +152,7 @@ class Data:
         dct = {k: v for k, v in self.__df.iloc[self.__buffer].items()}
         lines = ", ".join("{}={:.2f}".format(k, v) for k, v in dct.items())
 
-        return f"<{self.__class__.__name__} {self.ticker} ({self.dt}) {lines}>"
+        return f"<{self.__class__.__name__} {self.ticker} ({self.date}) {lines}>"
 
     def __getitem__(self, line: str):
         return self.__lines.get(line.lower())
@@ -164,22 +163,14 @@ class Data:
     def __len__(self):
         return len(self.__df)
 
-    def __sync_buffer(func: Callable):
-        def wrapper(self, *args, **kwargs):
-
-            func(self, *args, **kwargs)
-
-            for line in self.__lines.values():
-                line._Line__next()
-
-        return wrapper
-
-    @__sync_buffer
     def next(self, step: int = _DEFAULT_STEP):
         self.__buffer = min(
             self.__buffer + step,
             len(self) - 1,
         )
+
+        for line in self.__lines.values():
+            line._Line__next()
 
     def add_line(self, name: str, line: Line):
 
@@ -187,12 +178,16 @@ class Data:
             msg = f"{name} must be Line Type"
             raise TypeError(msg)
 
+        if len(line) != len(self.index):
+            msg = "Line must be of same length of Data"
+            raise ValueError(msg)
+
         self.__lines.update(
             {name: line},
         )
 
     @property
-    def dt(self) -> str:
+    def date(self) -> str:
         return self.index[0].isoformat()
 
     @property
@@ -201,7 +196,7 @@ class Data:
 
     @property
     def schema(self) -> Sequence[str]:
-        return tuple(self.df.columns)
+        return tuple(col.lower() for col in self.df.columns)
 
     @property
     def buffer(self) -> int:
@@ -289,8 +284,6 @@ class Asset(Base):
         ticker: str,
         data: pd.DataFrame,
         index: Sequence[date] = None,
-        asset: Optional[str] = None,
-        maturity: Optional[date] = None,
         **commkwargs,
     ):
         super().__init__(
@@ -298,9 +291,6 @@ class Asset(Base):
             ticker=ticker,
             index=index,
         )
-
-        self.__asset = asset
-        self.__maturity = maturity
 
         self.config(**commkwargs)
 
@@ -311,47 +301,44 @@ class Asset(Base):
         margin: Number = _DEFAULT_MARGIN,
         currency: str = _DEFAULT_CURRENCY,
         multiplier: Optional[Number] = None,
+        maturity: Optional[date] = None,
     ):
-
-        if slippage >= 0:
-            self.__slippage = slippage
-        else:
-            msg = "Invalid value for slippage"
+        if margin < 0 or margin > 1:
+            msg = "Invalid value for margin"
             raise ValueError(msg)
 
-        if margin >= 0:
-            self.__margin = margin
-        else:
-            msg = "Invalid value for margin"
+        if slippage < 0:
+            msg = "Invalid value for slippage"
             raise ValueError(msg)
 
         if currency not in _CURR:
             msg = "Invalid value for currency"
             raise ValueError(msg)
 
+        self.__margin = margin
+        self.__slippage = slippage
+        self.__currency = currency
+        self.__maturity = maturity
+
         if multiplier is None:
-            self.__commtype = _COMMTYPE["STOCKS"]
-            self.__commission = _DEFAULT_SCOMMISSION
+            self.__commission = commission or _DEFAULT_SCOMMISSION
+            self.__commtype = _COMMTYPE["PERC"]
             self.__multiplier = 1
-            self.__currency = currency
-            self.__margin = margin
 
             self.__stocklike = True
             self.__rateslike = False
             self.__asset = self.__ticker
 
         else:
-            self.__commtype = _COMMTYPE["FUTURES"]
-            self.__commission = _DEFAULT_FCOMMISSION
+            self.__commission = commission or _DEFAULT_FCOMMISSION
+            self.__commtype = _COMMTYPE["ABS"]
             self.__multiplier = multiplier
-            self.__currency = currency
-            self.__margin = margin
 
             self.__stocklike = False
             self.__asset = derive_asset(self.__ticker)
             self.__rateslike = self.__asset in _RATESLIKE
 
-            if self.__maturity is None:
+            if maturity is None:
                 msg = "Maturity is required for Future-Like assets"
                 ValueError(msg)
 
@@ -421,9 +408,7 @@ class Hedge(Asset):
         ticker: str,
         data: pd.DataFrame,
         index: Sequence[date] = None,
-        hmethod: str = _HMETHOD["E"],
-        asset: Optional[str] = None,
-        maturity: Optional[date] = None,
+        hmethod: str = _HMETHOD["EXPO"],
         **commkwargs,
     ):
         super().__init__(
