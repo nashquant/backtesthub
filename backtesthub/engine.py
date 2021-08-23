@@ -15,6 +15,7 @@ from .calendar import Calendar
 from .utils.bases import Base, Asset, Hedge
 
 from .utils.config import (
+    _DEFAULT_CARRY,
     _DEFAULT_PAIRS,
     _DEFAULT_BUFFER,
 )
@@ -64,14 +65,13 @@ class Engine:
         self.__obases: Dict[str, Base] = OrderedDict()
         self.__currs: Dict[str, Base] = OrderedDict()
         self.__carry: Dict[str, Base] = OrderedDict()
-        self.__universe: Sequence[str] = list()
 
         self.__broker: Broker = Broker(
             index=self.__index,
         )
 
         self.__pipeline: Pipeline = pipeline(
-            bases=self.__bases,
+            index=self.__index,
             assets=self.__assets,
             hedges=self.__hedges,
         )
@@ -87,23 +87,7 @@ class Engine:
         self,
         ticker: str,
         data: pd.DataFrame,
-        hedge: bool = False,
-        main: bool = True,
     ):
-        """
-
-        `Main` is a boolean that indicates
-        whether the asset is the main base
-        or not. You can have only one core
-        base per side, but multiple non-core
-        ones
-
-        PS: Only one base allowed per side.
-        "base": "Asset" Side
-        "hbase": "Hedge" Side
-
-        """
-
         base = Base(
             ticker=ticker,
             data=data,
@@ -118,7 +102,7 @@ class Engine:
             self.__currs.update(
                 {ticker: base},
             )
-        if ticker.upper() == "CARRY":
+        if ticker.upper() == _DEFAULT_CARRY:
             self.__carry.update(
                 {ticker: base},
             )
@@ -177,16 +161,10 @@ class Engine:
 
         for self.dt in self.loop:
 
-            new = self.__pipeline.next(
-                date=self.dt,
-                old=self.__universe,
-            )
+            self.__pipeline.next()
+            univ = self.__pipeline.universe
 
-            ## << Handle closing positions >> ##
-
-            self.__universe = new
-
-            for data in new:
+            for data in univ:
                 data.next()
 
             self.__broker.next()
@@ -209,28 +187,20 @@ class Engine:
 
     @property
     def base(self) -> Base:
-        return self.__bases["base"]
-    
+        return self.__bases.values()[0]
+
     @property
-    def h_base(self) -> Base:
-        return self.__bases["h_base"]
-    
+    def bases(self) -> Dict[str, Base]:
+        return self.__bases
+
     @property
     def obases(self) -> Dict[str, Base]:
         return self.__obases
 
     @property
-    def universe(self) -> Sequence[Asset]:
-        return self.__universe
-
-    @property
     def datas(self) -> Dict[str, Union[Base, Asset]]:
-        datas = {**self.__bases, **self.__assets}
-        datas = {k: v for k, v in datas.items() if v is not None}
-        return datas
+        return {**self.__bases, **self.__assets}
 
     @property
     def all_datas(self) -> Dict[str, Union[Base, Asset, Hedge]]:
-        datas = {**self.datas, **self.__hedges}
-        datas = {k: v for k, v in datas.items() if v is not None}
-        return datas
+        return {**self.datas, **self.__hedges}

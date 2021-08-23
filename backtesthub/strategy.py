@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 
+from backtesthub.pipeline import Pipeline
 import numpy as np
-
+from numbers import Number
 from abc import ABCMeta, abstractmethod
 from typing import Callable, Dict, Union, Optional, Sequence
 
@@ -21,12 +22,14 @@ class Strategy(metaclass=ABCMeta):
     def __init__(
         self,
         broker: Broker,
+        pipeline: Pipeline,
         bases: Dict[str, Base],
         assets: Dict[str, Asset],
         hedges: Dict[str, Hedge],
     ):
 
         self.__broker = broker
+        self.__pipeline = pipeline
         self.__bases = bases
         self.__assets = assets
         self.__hedges = hedges
@@ -63,7 +66,7 @@ class Strategy(metaclass=ABCMeta):
         self,
         data: Union[Base, Asset, Hedge],
         func: Callable = Default,
-        *args: Union[str, int, float],
+        *args: Number,
     ):
 
         """
@@ -106,7 +109,6 @@ class Strategy(metaclass=ABCMeta):
 
         try:
             vol = func(data, *args)
-
         except Exception as e:
             raise Exception(e)
 
@@ -147,7 +149,7 @@ class Strategy(metaclass=ABCMeta):
         method: str = "EWMA",
     ):
 
-        current = self.get_current()
+        current = self.get_current(data)
         equity = self.__broker[0]
         method = _METHOD[method]
 
@@ -164,12 +166,17 @@ class Strategy(metaclass=ABCMeta):
             size = signal * target * equity / price
 
         elif method == _METHOD["EXPO"]:
-            assert target is not None
+            if target is None:
+                msg="Need to assign a Target"
+                raise ValueError(msg)
 
             size = target * equity / price
 
         elif method == _METHOD["SIZE"]:
-            assert target is not None
+            if target is None:
+                msg="Need to assign a Target"
+                raise ValueError(msg)
+            
             size = target
 
         else:
@@ -181,7 +188,10 @@ class Strategy(metaclass=ABCMeta):
         else:
             delta = size - current
 
-        if current != 0 and thresh > 0:
+        has_position = (not current == 0)
+        has_tresh = (thresh > 0) 
+
+        if has_position and has_tresh:
             stimulus = abs(delta) / abs(current)
             if stimulus < thresh:
                 return
@@ -192,7 +202,10 @@ class Strategy(metaclass=ABCMeta):
             limit=price,
         )
 
-    def get_current(self, data: Union[Asset, Hedge]):
+    def get_universe(self) -> Sequence[Union[Asset, Hedge]]:
+        return self.__pipeline.universe
+
+    def get_current(self, data: Union[Asset, Hedge]) -> Number:
 
         if type(data) not in (Asset, Hedge):
             msg = "Data must be of type Asset/Hedge"
@@ -204,12 +217,8 @@ class Strategy(metaclass=ABCMeta):
         return size
 
     @property
-    def indicators(self) -> Dict[str, str]:
-        return self.__indicators
-
-    @property
-    def base(self) -> Optional[Base]:
-        return self.__bases.get("base")
+    def base(self) -> Base:
+        return tuple(self.__bases.values())[0]
 
     @property
     def bases(self) -> Dict[str, Base]:
@@ -222,3 +231,7 @@ class Strategy(metaclass=ABCMeta):
     @property
     def hedges(self) -> Dict[str, Hedge]:
         return self.__hedges
+
+    @property
+    def pipeline(self) -> Pipeline:
+        return self.__pipeline

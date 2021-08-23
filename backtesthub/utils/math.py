@@ -2,12 +2,10 @@
 
 import math
 import pandas as pd
-from numbers import Number
-from typing import Union, Sequence
-
 from holidays import BR
 from datetime import date
 from workdays import networkdays
+from typing import Union, Sequence
 
 from .bases import Base, Asset, Hedge
 from .config import (
@@ -36,7 +34,7 @@ def EWMA(
 def EWMAVolatility(
     data: Union[Base, Asset, Hedge],
     alpha: float = _DEFAULT_VPARAM,
-    freq: Number = 252,
+    freq: int = 252,
 ) -> pd.Series:
 
     if not type(data) in (Base, Asset, Hedge):

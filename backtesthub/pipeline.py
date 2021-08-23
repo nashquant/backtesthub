@@ -28,23 +28,26 @@ class Pipeline(metaclass=ABCMeta):
 
     def __init__(
         self,
+        index: Sequence[date],
         assets: Dict[str, Asset] = OrderedDict(),
         hedges: Dict[str, Hedge] = OrderedDict(),
     ):
+        self.__index = index
         self.__assets = assets
         self.__hedges = hedges
+        self.__universe = []
 
     @abstractmethod
     def init(self):
         """ """
 
     @abstractmethod
-    def next(self) -> Sequence[Asset]:
+    def next(self):
         """ """
 
     @property
     def asset(self) -> Asset:
-        return self.__assets.values()[0]
+        return tuple(self.__assets.values())[0]
 
     @property
     def assets(self) -> Dict[str, Asset]:
@@ -55,10 +58,12 @@ class Pipeline(metaclass=ABCMeta):
         return self.__hedges
 
     @staticmethod
-    def build_chain(self) -> Dict[str, date]:
+    def build_chain(self) -> Dict[str,Asset]:
 
         maturities: Dict[str, date] = {
-            asset.ticker: asset.maturity for asset in self.__assets
+            asset.ticker: asset.maturity
+            for asset in self.assets
+            if asset.maturity is not None
         }
 
         chain: Dict[str, date] = dict(
@@ -68,4 +73,4 @@ class Pipeline(metaclass=ABCMeta):
             )
         )
 
-        return chain
+        return tuple(chain.keys())
