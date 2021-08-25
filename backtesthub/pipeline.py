@@ -22,7 +22,7 @@ class Pipeline(metaclass=ABCMeta):
     assigned at `init` if it is supposed to be
     static and defined before the simulation
     begins. Or it can be dynamically defined
-    as next progresses.
+    as runs progresses.
 
     """
 
@@ -32,7 +32,6 @@ class Pipeline(metaclass=ABCMeta):
         assets: Dict[str, Asset] = OrderedDict(),
         hedges: Dict[str, Hedge] = OrderedDict(),
     ):
-        self.__index = index
         self.__assets = assets
         self.__hedges = hedges
         self.__universe = []
@@ -42,7 +41,7 @@ class Pipeline(metaclass=ABCMeta):
         """ """
 
     @abstractmethod
-    def next(self):
+    def run(self):
         """ """
 
     @property

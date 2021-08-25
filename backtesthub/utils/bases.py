@@ -12,7 +12,6 @@ from .config import (
     _DEFAULT_STEP,
     _DEFAULT_BUFFER,
     _DEFAULT_CURRENCY,
-    _DEFAULT_MARGIN,
     _DEFAULT_SLIPPAGE,
     _DEFAULT_SCOMMISSION,
     _DEFAULT_FCOMMISSION,
@@ -45,20 +44,13 @@ class Line(np.ndarray):
         return obj
 
     def __getitem__(self, key: int):
-
         key += self.__buffer
-        if key < 0:
-            msg = "Key l.t zero"
-            raise KeyError(msg)
-
-        elif key >= len(self):
-            msg = "Key g.t.e length"
-            raise KeyError(msg)
-
         return super().__getitem__(key)
 
     def __repr__(self):
-        return repr(self.__array[_DEFAULT_BUFFER : self.__buffer + 1])
+        beg = _DEFAULT_BUFFER
+        end = self.__buffer
+        return repr(self.__array[beg : end + 1])
 
     def __len__(self):
         return len(self.__array)
@@ -249,9 +241,9 @@ class Asset(Base):
 
     Different from backtesting.py, we treat the basic Data
     Structure as having all properties of an asset, such as
-    ticker, currency, commission (value and type), margin req.
-    and identifying booleans to indicate things such as
-    whether the asset is a stock or a future, whether its
+    ticker, currency, commission (value and type), and
+    identifying booleans to indicate things such as whether
+    the asset is a stock or a future, whether its
     OHLC data is given in [default] price or rates.
 
     Asset Extends `Base` including features such as:
@@ -269,10 +261,6 @@ class Asset(Base):
     * `slip` is the estimated mean slippage per trade.
       Slippage exists to account for the effects of bid-ask
       spread.
-
-    * `margin` is the required margin (ratio) of a leveraged
-      account. No difference is made between initial and
-      maintenance margins.
 
     * `maturity` is the maturity date of an asset. Specially
       import for derivative contracts such as options and futures.
@@ -298,15 +286,10 @@ class Asset(Base):
         self,
         commission: Number = _DEFAULT_SCOMMISSION,
         slippage: Number = _DEFAULT_SLIPPAGE,
-        margin: Number = _DEFAULT_MARGIN,
         currency: str = _DEFAULT_CURRENCY,
         multiplier: Optional[Number] = None,
         maturity: Optional[date] = None,
     ):
-        if margin < 0 or margin > 1:
-            msg = "Invalid value for margin"
-            raise ValueError(msg)
-
         if slippage < 0:
             msg = "Invalid value for slippage"
             raise ValueError(msg)
@@ -315,7 +298,6 @@ class Asset(Base):
             msg = "Invalid value for currency"
             raise ValueError(msg)
 
-        self.__margin = margin
         self.__slippage = slippage
         self.__currency = currency
         self.__maturity = maturity
@@ -378,12 +360,12 @@ class Asset(Base):
         return self.__commtype
 
     @property
-    def margin(self) -> Number:
-        return self.__margin
-
-    @property
     def maturity(self) -> date:
         return self.__maturity
+
+    @property
+    def cashlike(self) -> bool:
+        return self.__stocklike or self.__rateslike
 
 
 class Hedge(Asset):
@@ -416,6 +398,7 @@ class Hedge(Asset):
             ticker=ticker,
             data=data,
             index=index,
+            **commkwargs,
         )
 
         self.__hmethod = hmethod

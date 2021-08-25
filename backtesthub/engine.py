@@ -20,22 +20,20 @@ from .utils.config import (
     _DEFAULT_BUFFER,
 )
 
-
 class Engine:
 
     """
+    `Engine Class`
 
-    This object is responsible for orchestrating all
-    other objects (Strategy, Broker, Position, ...)
-    in order to properly run the simulation.
+    Instances of this class are responsible for orchestrating all
+    other objects (Strategy, Broker, Position, ...) in order to 
+    properly run the simulation.
 
-    Lots of features such as intraday operations,
-    multi-calendar runs, live trading, etc. are
-    still pending development.
+    Lots of features such as intraday operations, multi-calendar 
+    runs, live trading, etc. are still pending development.
 
-    Some settings may be changed through environment
-    variables configuration. Refer to .utils.config
-    to get more info.
+    Some settings may be changed through environment variables 
+    configuration. Refer to .utils.config to get more info.
 
     """
 
@@ -78,6 +76,7 @@ class Engine:
 
         self.__strategy: Strategy = strategy(
             broker=self.__broker,
+            pipeline=self.__pipeline,
             bases=self.__bases,
             assets=self.__assets,
             hedges=self.__hedges,
@@ -88,6 +87,14 @@ class Engine:
         ticker: str,
         data: pd.DataFrame,
     ):
+        """
+        `Base add`
+
+        - Main Base is assumed to be added first.
+        - Main H_Base is assumed to be added second.
+        - Other bases are the remaining ones. 
+        """
+
         base = Base(
             ticker=ticker,
             data=data,
@@ -106,6 +113,7 @@ class Engine:
             self.__carry.update(
                 {ticker: base},
             )
+            self.__broker.add_carry(base)
 
     def add_asset(
         self,
@@ -152,7 +160,6 @@ class Engine:
         )
 
     def run(self) -> pd.DataFrame:
-
         if not self.__assets:
             return
 
@@ -160,15 +167,14 @@ class Engine:
         self.__strategy.init()
 
         for self.dt in self.loop:
-
-            self.__pipeline.next()
-            univ = self.__pipeline.universe
-
-            for data in univ:
+            for data in univ: 
                 data.next()
-
-            self.__broker.next()
+            
+            self.__broker.beg_of_period()
+            univ = self.__pipeline.run()
+            
             self.__strategy.next()
+            self.__broker.end_of_period()
 
     def __len__(self) -> int:
         return len(self.__index)

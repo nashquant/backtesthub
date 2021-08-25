@@ -12,9 +12,10 @@ dotenv_path = os.path.join(
 )
 dotenv.load_dotenv(dotenv_path)
 
+_DEFAULT_MIN_SIZE: int = int(os.getenv("DEF_MIN_SIZE", "1"))
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
 _DEFAULT_CARRY: str = str(os.getenv("DEF_CARRY", "CARRY"))
-_DEFAULT_MARGIN: float = float(os.getenv("DEF_MARGIN", "0"))
+_DEFAULT_SIZING: str = str(os.getenv("DEF_SIZING", "EWMA"))
 _DEFAULT_SLIPPAGE: float = float(os.getenv("DEF_SLIP", "2e-04"))
 _DEFAULT_SCOMMISSION: float = float(os.getenv("DEF_SCOMM", "10e-04"))
 _DEFAULT_FCOMMISSION: float = float(os.getenv("DEF_FCOMM", "10"))

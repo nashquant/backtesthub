@@ -1,10 +1,7 @@
 #! /usr/bin/env python3
 
 from ..pipeline import Pipeline
-from workdays import workday
-from datetime import date
 
-from typing import Sequence
 from ..utils.config import (
     _DEFAULT_LAG,
 )
@@ -14,7 +11,7 @@ class Default(Pipeline):
     def init(self):
         self.universe = tuple(self.assets.values())
 
-    def next(self):
+    def run(self):
         return self.universe
 
 
@@ -27,16 +24,25 @@ class Rolling(Pipeline):
         self.universe = [self.asset]
         self.maturity = self.asset.maturity
 
-    def next(self):
-        
+    def run(self):
         if self.asset.__index[_DEFAULT_LAG] >= self.maturity:
             ticker = self.chain.pop(0)
             self.asset = self.assets[ticker]
             self.universe = [self.asset]
             self.maturity = self.asset.maturity
+        
+        return self.universe
 
 class Vertice(Pipeline):
-    raise NotImplementedError()
+    def init(self):
+        raise NotImplementedError()
+    
+    def run(self):
+        raise NotImplementedError()
 
 class Ranking(Pipeline):
-    raise NotImplementedError()
+    def init(self):
+        raise NotImplementedError()
+    
+    def run(self):
+        raise NotImplementedError()

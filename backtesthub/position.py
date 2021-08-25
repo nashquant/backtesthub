@@ -8,13 +8,14 @@ from .utils.bases import Asset, Hedge
 class Position:
 
     """
+    Position Class
        
     """
 
     def __init__(
         self,
-        size: Number,
         data: Union[Asset, Hedge],
+        size: Number,
         stop: Optional[Number] = None,
     ):
 
@@ -37,7 +38,14 @@ class Position:
         return log
 
     def check_stop(self):
-        raise NotImplementedError()    
+        raise NotImplementedError()
+
+    def add(self, delta: int):
+        if not type(delta) == int:
+            msg="Wrong input for position delta"
+            raise TypeError(msg)
+
+        self.__size+=delta     
 
     @property
     def size(self) -> float:
@@ -51,26 +59,22 @@ class Position:
         mult = self.data.multiplier
         price = self.data.close[0]
 
-        return self.__size * mult * price 
+        return self.__size * mult * price
 
     @property
-    def margin(self) -> float:
+    def last_expo(self) -> float:
         """
-        Margin as % of equity
+        Exposition as % of equity
         """
+        mult = self.data.multiplier
+        price = self.data.close[-1]
 
-        margin = self.data.margin
-        if not margin: return 0
-
-        return margin * self.expo 
+        return self.__size * mult * price 
 
     @property
     def stop(self) -> Optional[float]:
         return self.__stop
 
-    @property
-    def signal(self) -> float:
-        return self.__data.signal[0]
 
     @property
     def ticker(self) -> float:

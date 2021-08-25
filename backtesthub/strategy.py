@@ -1,18 +1,20 @@
 #! /usr/bin/env python3
 
-from backtesthub.pipeline import Pipeline
+import math
 import numpy as np
 from numbers import Number
 from abc import ABCMeta, abstractmethod
 from typing import Callable, Dict, Union, Optional, Sequence
 
 from .broker import Broker
-
+from .pipeline import Pipeline
 from .indicators import Default
 from .utils.math import EWMAVolatility
 from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import (
     _DEFAULT_VOLATILITY,
+    _DEFAULT_MIN_SIZE,
+    _DEFAULT_SIZING,
     _DEFAULT_THRESH,
     _METHOD,
 )
@@ -36,31 +38,10 @@ class Strategy(metaclass=ABCMeta):
 
     @abstractmethod
     def init():
-        """
-        * To configure the strategy, override this method.
-
-        * Declare indicators (with `backtesting.backtesting.Strategy.I`).
-
-        * Precompute what needs to be precomputed or can be precomputed
-          in a vectorized fashion before the strategy starts.
-
-        """
-
+        """"""
     @abstractmethod
     def next():
-        """
-        * Main strategy runtime method, called as each new
-          `backtesting.backtesting.Strategy.data` instance
-          (row; full candlestick bar) becomes available.
-
-        * This is the main method where strategy decisions
-          upon data precomputed in `backtesting.backtesting.
-          Strategy.init` take place.
-
-        * If you extend composable strategies from `backtesting.lib`,
-
-        * make sure to call `super().next()`!
-        """
+        """"""
 
     def I(
         self,
@@ -70,13 +51,23 @@ class Strategy(metaclass=ABCMeta):
     ):
 
         """
-        Declare indicator.
+        `Indicator Assignment`
 
+        - Takes a custom function, a data structre
+          that can either be Base, Asset or Hedge,
+          and some parameters to be passed to func.
+        
+        - The function is supposed to receive the
+          data structure, and it is expected that
+          the function can manipulate the data "schema".
+
+        - The function should then perform calculations
+          in a Line of the object and return an array-like 
+          object containing only numbers, that will then,
+          be converted to indicators and signal lines 
         """
-
         try:
             ind = func(data, *args)
-
         except Exception as e:
             raise Exception(e)
 
@@ -106,7 +97,12 @@ class Strategy(metaclass=ABCMeta):
         func: Callable = EWMAVolatility,
         *args: Union[str, int, float],
     ):
+        """
+        `Volatility Assignment`
 
+        Basically does the same job as `self.I`
+        but it is applied to volatility calcs.  
+        """
         try:
             vol = func(data, *args)
         except Exception as e:
@@ -123,16 +119,30 @@ class Strategy(metaclass=ABCMeta):
         assets: Dict[str, Asset],
         lines: Sequence[str] = [],
     ):
+        """
+        `Broadcasting Lines`
 
-        schema = set(base.schema)
+        Very important object that allows one
+        to assign the indicator/signal lines
+        of an object to another one.
+
+        Therefore, it allows one to calculate
+        signals/volatility/indicators using a 
+        `Base` data, and transfer the results
+        to one or multiple other `Assets` data.
+        """
+        base_lines = set(base.lines)
+        
         if not lines: 
-            lines = ["signal", "volatility"]
+            new_lines = ["signal", "volatility"]
+        else:
+            new_lines = lines
             
         for asset in assets.values():
-            for line in lines:
+            for line in new_lines:
                 line = line.lower()
 
-                if not line in schema:
+                if not line in base_lines:
                     continue
 
                 asset.add_line(
@@ -143,14 +153,55 @@ class Strategy(metaclass=ABCMeta):
     def order(
         self,
         data: Union[Asset, Hedge],
-        target: Optional[float] = None,
-        price: Optional[float] = None,
+        method: str = _DEFAULT_SIZING,
         thresh: float = _DEFAULT_THRESH,
-        method: str = "EWMA",
+        min_size: int = _DEFAULT_MIN_SIZE,
+        target: Optional[float] = None,
+        limit: Optional[float] = None,
+        stop: Optional[float] = None,
     ):
+        """
+        `Order Generation`
+
+        Very important object that allows one
+        to create with great flexibility an 
+        order to be sent to the broker.
+
+        First thing is to correctly select 
+        the method to be employed.
+        
+        Default: Sizing is done with inverse
+        volatility sizing using EWMA volat.
+        
+        Obs: For other methods, such as target
+        expo order it is necessary to pass a
+        number to parameter `target`.
+
+        Then, the user can manipulate the order
+        by assigning other behavior such as:
+
+        1) `Threshold`: order is trigged only if 
+           the position is not opened, else if
+           the "delta" is a least "thresh" times
+           the current position size.
+        
+        2) `Min_size`: ...
+
+        3) `Limit_price`: ...
+
+        4) `Stop_price`: ...
+        
+        """
+        if method not in _METHOD:
+            msg="Method not implemented"
+            raise ValueError(msg)
+        
+        if type(min_size)!= int or min_size < 1:
+            msg="Invalid min_size, must be int >=1"
+            raise ValueError(msg) 
 
         current = self.get_current(data)
-        equity = self.__broker[0]
+        equity = self.__broker.last_equity
         method = _METHOD[method]
 
         price = data.close[0] * data.multiplier
@@ -161,7 +212,7 @@ class Strategy(metaclass=ABCMeta):
 
             vol_target = _DEFAULT_VOLATILITY
             vol_asset = data.volatility[0]
-            target = vol_asset / vol_target
+            target = vol_target/ vol_asset 
 
             size = signal * target * equity / price
 
@@ -182,14 +233,19 @@ class Strategy(metaclass=ABCMeta):
         else:
             msg = "Method still not Implemented"
             raise NotImplementedError(msg)
+        
+        if size > 0:
+            size = min_size*math.floor(size/min_size)
+        elif size < 0:
+            size = min_size*math.ceil(size/min_size)
 
         if size==current:
             return
-        else:
-            delta = size - current
 
         has_position = (not current == 0)
         has_tresh = (thresh > 0) 
+
+        delta = size - current
 
         if has_position and has_tresh:
             stimulus = abs(delta) / abs(current)
@@ -199,14 +255,13 @@ class Strategy(metaclass=ABCMeta):
         self.__broker.new_order(
             data=data,
             size=delta,
-            limit=price,
+            limit=limit,
         )
 
     def get_universe(self) -> Sequence[Union[Asset, Hedge]]:
         return self.__pipeline.universe
 
     def get_current(self, data: Union[Asset, Hedge]) -> Number:
-
         if type(data) not in (Asset, Hedge):
             msg = "Data must be of type Asset/Hedge"
             raise TypeError(msg)
