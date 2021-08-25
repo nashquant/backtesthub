@@ -23,8 +23,8 @@ class Order:
         self.__isbuy = self.__size > 0
         self.__issell = self.__size < 0
 
-        if type(data) not in (Asset, Hedge):
-            msg = "Order `data` must be either an Asset or a Hedge"
+        if not isinstance(data, (Asset, Hedge)):
+            msg = "Order `data` must be either an Asset or a Hedge instance!"
             raise TypeError(msg)
 
         if not self.__isbuy and not self.__issell:

@@ -95,19 +95,18 @@ class Broker:
         self.cash[0] = self.last_cash
         self.open[0] = self.last_equity
 
-        MTM = 0  ## Mark to market
         for pos in self.position_stack:
             data = pos.data
             mult = data.multiplier
 
-            MTM += pos.size * (data.open[0] - data.close[-1]) * mult
+            MTM = pos.size * (data.open[0] - data.close[-1]) * mult
 
             self.open[0] += MTM
             if not data.stocklike:
                 self.cash[0] += MTM
 
-            ## When cash is consumed, it cannot yield carry
-            ## Rateslike assets are swap-like against carry
+            ## When cash is consumed, it cannot yield carry ##
+            ## Rateslike assets are swap-like against carry ##
             if data.cashlike and self.last_carry:
                 dollar_expo = pos.size * mult * data.close[-1]
                 self.cash[0] -= dollar_expo * self.last_carry
@@ -123,16 +122,14 @@ class Broker:
         """
         `Order Execution`
         
-        - Checks whether price is executable
-        - Checks whether cash is sufficient
-        - Updates Open Equity and Open Cash
-        - Updates Positions and create/closes
-          them if necessary.
+        - Checks whether price is executable.
+        - Checks whether cash is sufficient.
+        - Updates Open Equity and Open Cash.
+        - Updates Positions and create/closes them if necessary.
 
-        OBS: Even though executed price might
-        occur in-between open-close times, we
-        apply a simplyfing assumption that it
-        occurs exactly at open.
+        OBS: Even though executed price might occur in-between 
+        open-close times, we apply a simplyfing assumption that 
+        it occurs exactly at open.
 
         When order is `valid`:
 
@@ -148,7 +145,6 @@ class Broker:
         limit price is not feasible for execution.
 
         """
-
         if order.exec_price is None:
             return
         if self.curr_cash <= 0:
@@ -228,16 +224,12 @@ class Broker:
 
         self.equity[0] = self.open[0]
 
-        MTM = 0  ## Mark to market
         for pos in self.position_stack:
             data, mult = pos.data, pos.data.multiplier
-            MTM += pos.size * (data.close[0] - data.open[0]) * mult
-
-        self.equity[0] += MTM
-        if not data.stocklike:
-            self.cash[0] += MTM
-
-        self.__next()
+            MTM = pos.size * (data.close[0] - data.open[0]) * mult
+            self.equity[0] += MTM
+            if not data.stocklike:
+                self.cash[0] += MTM
 
     def __cancel_order(self, order: Order):
         if order.status == _STATUS["WAIT"]:
@@ -259,7 +251,7 @@ class Broker:
     def __len__(self):
         return len(self.__index)
 
-    def __next(self, step: int = _DEFAULT_STEP):
+    def next(self, step: int = _DEFAULT_STEP):
         self.__buffer = min(
             self.__buffer + step,
             len(self) - 1,
@@ -319,14 +311,12 @@ class Broker:
 
     @property
     def order_stack(self) -> List[Order]:
-        if not self.__orders:
-            return []
+        if not self.__orders: return []
         return list(self.__orders.values())
 
     @property
     def position_stack(self) -> List[Position]:
-        if not self.__positions:
-            return []
+        if not self.__positions: return []
         return list(self.__positions.values())
 
     @property

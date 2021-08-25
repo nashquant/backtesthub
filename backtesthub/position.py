@@ -18,7 +18,6 @@ class Position:
         size: Number,
         stop: Optional[Number] = None,
     ):
-
         if not isinstance(data, (Asset, Hedge)):
             msg = "Invalid Data Type"
             raise TypeError(msg)
@@ -74,7 +73,6 @@ class Position:
     @property
     def stop(self) -> Optional[float]:
         return self.__stop
-
 
     @property
     def ticker(self) -> float:

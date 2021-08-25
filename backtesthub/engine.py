@@ -43,16 +43,13 @@ class Engine:
         pipeline: Pipeline,
         calendar: Calendar,
     ):
-
-        if not (issubclass(strategy, Strategy)):
+        if not issubclass(strategy, Strategy):
             msg = "Arg `strategy` must be a `Strategy` subclass!"
             raise TypeError(msg)
-
-        if not (issubclass(pipeline, Pipeline)):
+        if not issubclass(pipeline, Pipeline):
             msg = "Arg `pipeline` must be a `Pipeline` subclass!"
             raise TypeError(msg)
-
-        if not (isinstance(calendar, Calendar)):
+        if not isinstance(calendar, Calendar):
             msg = "Arg `calendar` must be a `Calendar` instance!"
             raise TypeError(msg)
 
@@ -60,7 +57,6 @@ class Engine:
         self.__bases: Dict[str, Base] = OrderedDict()
         self.__assets: Dict[str, Asset] = OrderedDict()
         self.__hedges: Dict[str, Hedge] = OrderedDict()
-        self.__obases: Dict[str, Base] = OrderedDict()
         self.__currs: Dict[str, Base] = OrderedDict()
         self.__carry: Dict[str, Base] = OrderedDict()
 
@@ -88,7 +84,7 @@ class Engine:
         data: pd.DataFrame,
     ):
         """
-        `Base add`
+        `Base add function`
 
         - Main Base is assumed to be added first.
         - Main H_Base is assumed to be added second.
@@ -167,14 +163,15 @@ class Engine:
         self.__strategy.init()
 
         for self.dt in self.loop:
-            for data in univ: 
+            for data in self.datas.values(): 
                 data.next()
             
             self.__broker.beg_of_period()
-            univ = self.__pipeline.run()
-            
+            self.universe = self.__pipeline.run()
             self.__strategy.next()
+            
             self.__broker.end_of_period()
+            self.__broker.next()
 
     def __len__(self) -> int:
         return len(self.__index)
@@ -185,7 +182,7 @@ class Engine:
 
     @property
     def loop(self) -> Sequence[date]:
-        return self.__index[_DEFAULT_BUFFER:]
+        return self.__index[_DEFAULT_BUFFER+1:]
 
     @property
     def strategy(self) -> Strategy:
@@ -200,13 +197,5 @@ class Engine:
         return self.__bases
 
     @property
-    def obases(self) -> Dict[str, Base]:
-        return self.__obases
-
-    @property
-    def datas(self) -> Dict[str, Union[Base, Asset]]:
-        return {**self.__bases, **self.__assets}
-
-    @property
-    def all_datas(self) -> Dict[str, Union[Base, Asset, Hedge]]:
-        return {**self.datas, **self.__hedges}
+    def datas(self) -> Dict[str, Union[Base, Asset, Hedge]]:
+        return {**self.__bases, **self.__assets, **self.__hedges}
