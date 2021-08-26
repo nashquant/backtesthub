@@ -173,6 +173,10 @@ class Data:
         )
 
     @property
+    def index(self) -> Line:
+        return self.__lines["__index"]
+
+    @property
     def date(self) -> str:
         return self.index[0].isoformat()
 
@@ -187,10 +191,6 @@ class Data:
     @property
     def buffer(self) -> int:
         return self.__buffer
-
-    @property
-    def index(self) -> Line:
-        return self.__lines["__index"]
 
     @property
     def lines(self) -> Sequence[str]:

@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 from ..pipeline import Pipeline
-from typing import Sequence
+from typing import Sequence, Union
 from ..utils.bases import Asset, Hedge
 from ..utils.config import (
     _DEFAULT_LAG,
@@ -12,7 +12,7 @@ class Default(Pipeline):
     def init(self):
         self.universe = tuple(self.assets.values())
 
-    def run(self) -> Sequence[Asset, Hedge]:
+    def run(self) -> Sequence[Union[Asset, Hedge]]:
         return self.universe
 
 
@@ -25,7 +25,7 @@ class Rolling(Pipeline):
         self.universe = [self.asset]
         self.maturity = self.asset.maturity
 
-    def run(self) -> Sequence[Asset, Hedge]: 
+    def run(self) -> Sequence[Union[Asset, Hedge]]: 
         if self.asset.index[_DEFAULT_LAG] > self.maturity:
             if not self.chain:
                 msg="Cannot derive any assets from empty chain"
@@ -42,12 +42,12 @@ class Vertice(Pipeline):
     def init(self):
         raise NotImplementedError()
     
-    def run(self) -> Sequence[Asset, Hedge]:
+    def run(self) -> Sequence[Union[Asset, Hedge]]:
         raise NotImplementedError()
 
 class Ranking(Pipeline):
     def init(self):
         raise NotImplementedError()
     
-    def run(self) -> Sequence[Asset, Hedge]:
+    def run(self) -> Sequence[Union[Asset, Hedge]]:
         raise NotImplementedError()

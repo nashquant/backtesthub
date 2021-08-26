@@ -59,8 +59,6 @@ class Engine:
         self.__bases: Dict[str, Base] = OrderedDict()
         self.__assets: Dict[str, Asset] = OrderedDict()
         self.__hedges: Dict[str, Hedge] = OrderedDict()
-        self.__currs: Dict[str, Base] = OrderedDict()
-        self.__carry: Dict[str, Base] = OrderedDict()
 
         self.__broker: Broker = Broker(
             index=self.__index,
@@ -103,14 +101,8 @@ class Engine:
         )
 
         if ticker.upper() in _DEFAULT_PAIRS:
-            self.__currs.update(
-                {ticker: base},
-            )
             self.__broker.add_curr(base)
         if ticker.upper() == _DEFAULT_CARRY:
-            self.__carry.update(
-                {ticker: base},
-            )
             self.__broker.add_carry(base)
 
     def add_asset(

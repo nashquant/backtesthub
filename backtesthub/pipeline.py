@@ -2,9 +2,9 @@
 
 from datetime import date
 from operator import itemgetter
-from typing import Dict, Sequence
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
+from typing import Dict, Sequence, Union
 
 from .utils.bases import Asset, Hedge
 
@@ -40,7 +40,7 @@ class Pipeline(metaclass=ABCMeta):
         """ """
 
     @abstractmethod
-    def run(self) -> Sequence[Asset, Hedge]:
+    def run(self) -> Sequence[Union[Asset, Hedge]]:
         """ """
 
     def build_chain(self) -> Sequence[str]:

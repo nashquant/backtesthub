@@ -99,7 +99,8 @@ class Order:
             return comm
 
         elif commtype == _COMMTYPE["PERC"]:
-            if not self.exec_price: return 0
+            if self.exec_price is None: 
+                return 0
             return self.exec_price * comm
 
     @property
@@ -118,7 +119,6 @@ class Order:
 
     @property
     def exec_price(self) -> Number:
-
         """
         OBS: Some authors bound the
         value of the executed prices
@@ -138,18 +138,20 @@ class Order:
             price = self.__data.open[0]
 
         else:
+            open = self.__data.open[0]
             high = self.__data.high[0]
             low = self.__data.low[0]
             limit = self.__limit
 
-            if limit <= low or limit >= high:
-                return
-
             if self.__side == 1:
-                if limit > low:
-                    price = min(limit, high)
+                if limit >= low:
+                    price = min(limit, high, open)
+                else:
+                    return
             elif self.__side == -1:
-                if limit < high:
-                    price = max(low, limit)
+                if limit <= high:
+                    price = max(limit, high, open)
+                else:
+                    return
 
-        return price * (1 + self.side * slip)
+        return price * (1 + self.__side * slip)

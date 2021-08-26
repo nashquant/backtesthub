@@ -2,6 +2,7 @@
 
 from numbers import Number
 from datetime import date
+from warnings import warn
 from typing import Dict, List, Optional, Sequence, Union
 
 from .order import Order
@@ -14,6 +15,7 @@ from .utils.config import (
     _STATUS,
 )
 
+
 class Broker:
     def __init__(
         self,
@@ -24,7 +26,9 @@ class Broker:
         self.__buffer = _DEFAULT_BUFFER
         self.__lines: Dict[str, Line] = {}
 
-        self.__lines["__index"] = Line(array=index)
+        self.__lines["__index"] = Line(
+            array=index,
+        )
 
         self.__lines["cash"] = Line(
             array=[cash] * len(index),
@@ -51,7 +55,7 @@ class Broker:
             raise TypeError(msg)
 
         self.carry = carry
-    
+
     def add_curr(self, curr: Base):
         if isinstance(curr, Base):
             msg = "Wrong input type for carry"
@@ -114,9 +118,12 @@ class Broker:
 
             ## When cash is consumed, it cannot yield carry ##
             ## Rateslike assets are swap-like against carry ##
-            if data.cashlike and self.last_carry:
-                dollar_expo = pos.size * mult * data.close[-1]
-                self.cash[0] -= dollar_expo * self.last_carry
+            if data.cashlike:
+                if self.last_carry is not None:
+                    dollar_expo = pos.size * mult * data.close[-1]
+                    self.cash[0] -= dollar_expo * self.last_carry
+                else:
+                    warn("Carry values were not inputed..")
 
         for order in self.order_stack:
             if order.status == _STATUS["WAIT"]:
@@ -127,14 +134,14 @@ class Broker:
     def __execute_order(self, order: Order):
         """
         `Order Execution`
-        
+
         - Checks whether price is executable.
         - Checks whether cash is sufficient.
         - Updates Open Equity and Open Cash.
         - Updates Positions and create/closes them if necessary.
 
-        OBS: Even though executed price might occur in-between 
-        open-close times, we apply a simplyfing assumption that 
+        OBS: Even though executed price might occur in-between
+        open-close times, we apply a simplyfing assumption that
         it occurs exactly at open.
 
         When order is `valid`:
@@ -153,17 +160,15 @@ class Broker:
         """
         if order.exec_price is None:
             return
-        if self.curr_cash <= 0:
-            return
-        if self.curr_equity <= 0:
-            return
 
         data = order.data
         mult = data.multiplier
 
-        CASH = order.total_comm
+        total_comm = order.total_comm
+        CASH = M2M = total_comm
+
         if order.data.stocklike:
-            CASH += order.size * order.exec_price * mult
+            CASH += order.size * order.exec_price
 
         if self.cash[0] < CASH:
             msg = f"{order} requires too much cash!"
@@ -180,7 +185,7 @@ class Broker:
 
         if not data.ticker in self.__positions:
             position = Position(data=data, size=order.size)
-            self.__positions.update({data.ticker:position})
+            self.__positions.update({data.ticker: position})
 
         else:
             position = self.__positions[data.ticker]
@@ -188,7 +193,7 @@ class Broker:
             if not position.size:
                 self.__positions.pop(data.ticker)
 
-        order.exec_date = self.index[0]
+        order.exec_date = self.date
         order.status = _STATUS["EXEC"]
         self.__executed.append(order)
 
@@ -199,16 +204,16 @@ class Broker:
         Update curr cash and curr equity
         Consider only closing positions.
 
-        OBS: Since we have already taken into account the 
+        OBS: Since we have already taken into account the
         trading mark-to-market effect of the executed [new]
-        positions at the execution stage, we don't need to 
-        separate the new positions from the old ones at this 
-        stage. 
-        
-        E.g. Suppose we had 10 shares of ABC at $10 and we 
-        make a new trade at $11, so that we have now 100 ABC 
+        positions at the execution stage, we don't need to
+        separate the new positions from the old ones at this
+        stage.
+
+        E.g. Suppose we had 10 shares of ABC at $10 and we
+        make a new trade at $11, so that we have now 100 ABC
         shares. Data Summary:
-        
+
         old_qty = 10, trade_qty = 90, new_qty = 100
 
         last_close = 10
@@ -225,7 +230,7 @@ class Broker:
         3) End of period (or EoP): 100*(12 - 10.5)
 
         See these two PNL account methods match!
-        
+
         """
 
         self.equity[0] = self.open[0]
@@ -258,7 +263,7 @@ class Broker:
         return len(self.__index)
 
     def next(self):
-        self.__buffer+=1
+        self.__buffer += 1
         for line in self.__lines.values():
             line._Line__next()
 
@@ -314,17 +319,23 @@ class Broker:
 
     @property
     def order_stack(self) -> List[Order]:
-        if not self.__orders: return []
+        if not self.__orders:
+            return []
         return list(self.__orders.values())
 
     @property
     def position_stack(self) -> List[Position]:
-        if not self.__positions: return []
+        if not self.__positions:
+            return []
         return list(self.__positions.values())
 
     @property
     def index(self) -> Line:
-        return self.__lines.get("__index")
+        return self.__lines["__index"]
+
+    @property
+    def date(self) -> str:
+        return self.index[0].isoformat()
 
     @property
     def lines(self) -> Sequence[str]:
