@@ -38,10 +38,10 @@ class Strategy(metaclass=ABCMeta):
 
     @abstractmethod
     def init():
-        """"""
+        """ """
     @abstractmethod
     def next():
-        """"""
+        """ """
 
     def I(
         self,
@@ -150,18 +150,18 @@ class Strategy(metaclass=ABCMeta):
                     line=eval(f"base.{line}"),
                 )
 
-    def order(
+    def order_target(
         self,
         data: Union[Asset, Hedge],
+        target: Optional[float] = None,
         method: str = _DEFAULT_SIZING,
         thresh: float = _DEFAULT_THRESH,
         min_size: int = _DEFAULT_MIN_SIZE,
-        target: Optional[float] = None,
         limit: Optional[float] = None,
         stop: Optional[float] = None,
     ):
         """
-        `Order Generation`
+        `Order Target Generation`
 
         Very important object that allows one
         to create with great flexibility an 
@@ -171,7 +171,7 @@ class Strategy(metaclass=ABCMeta):
         the method to be employed.
         
         Default: Sizing is done with inverse
-        volatility sizing using EWMA volat.
+        volatility sizing.
         
         Obs: For other methods, such as target
         expo order it is necessary to pass a
@@ -204,12 +204,11 @@ class Strategy(metaclass=ABCMeta):
         equity = self.__broker.last_equity
         method = _METHOD[method]
 
-        price = data.close[0] * data.multiplier
+        mult = data.multiplier
+        signal = data.signal[0]
+        price = data.close[0] * mult
 
         if method == _METHOD["EWMA"]:
-            
-            signal = data.signal[0]
-
             vol_target = _DEFAULT_VOLATILITY
             vol_asset = data.volatility[0]
             target = vol_target/ vol_asset 
@@ -221,14 +220,7 @@ class Strategy(metaclass=ABCMeta):
                 msg="Need to assign a Target"
                 raise ValueError(msg)
 
-            size = target * equity / price
-
-        elif method == _METHOD["SIZE"]:
-            if target is None:
-                msg="Need to assign a Target"
-                raise ValueError(msg)
-            
-            size = target
+            size = signal * target * equity / price
 
         else:
             msg = "Method still not Implemented"

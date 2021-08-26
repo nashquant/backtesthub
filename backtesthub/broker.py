@@ -11,7 +11,6 @@ from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import (
     _DEFAULT_BUFFER,
     _DEFAULT_CASH,
-    _DEFAULT_STEP,
     _STATUS,
 )
 
@@ -42,15 +41,23 @@ class Broker:
         self.__orders: Dict[str, Order] = {}
         self.__cancels: List[Order] = []
         self.__executed: List[Order] = []
+        self.__currs: Dict[str, Base] = {}
         self.__positions: Dict[str, Position] = {}
         self.__buffer: int = _DEFAULT_BUFFER
 
     def add_carry(self, carry: Base):
-        if not type(carry) == Base:
+        if isinstance(carry, Base):
             msg = "Wrong input type for carry"
             raise TypeError(msg)
 
         self.carry = carry
+    
+    def add_curr(self, curr: Base):
+        if isinstance(curr, Base):
+            msg = "Wrong input type for carry"
+            raise TypeError(msg)
+
+        self.__currs.update({curr.ticker: curr})
 
     def new_order(
         self,
@@ -112,10 +119,9 @@ class Broker:
                 self.cash[0] -= dollar_expo * self.last_carry
 
         for order in self.order_stack:
-            status = order.status
-            if status == _STATUS["WAIT"]:
+            if order.status == _STATUS["WAIT"]:
                 self.__execute_order(order)
-            if status in (_STATUS["EXEC"], _STATUS["CANC"]):
+            if order.status in (_STATUS["EXEC"], _STATUS["CANC"]):
                 self.__orders.pop(order.data.ticker)
 
     def __execute_order(self, order: Order):
@@ -251,11 +257,8 @@ class Broker:
     def __len__(self):
         return len(self.__index)
 
-    def next(self, step: int = _DEFAULT_STEP):
-        self.__buffer = min(
-            self.__buffer + step,
-            len(self) - 1,
-        )
+    def next(self):
+        self.__buffer+=1
         for line in self.__lines.values():
             line._Line__next()
 

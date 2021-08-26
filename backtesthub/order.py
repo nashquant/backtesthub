@@ -66,6 +66,10 @@ class Order:
     def status(self) -> str:
         return self.__status
 
+    @status.setter
+    def status(self, status: str) -> str:
+        self.__status = status
+
     @property
     def size(self) -> Number:
         return self.__size
@@ -73,6 +77,10 @@ class Order:
     @property
     def ticker(self) -> str:
         return self.__ticker
+    
+    @property
+    def data(self) -> Union[Asset, Hedge]:
+        return self.__data
 
     @property
     def dt(self) -> date:

@@ -47,10 +47,6 @@ class Position:
         self.__size+=delta     
 
     @property
-    def size(self) -> float:
-        return self.__size
-
-    @property
     def expo(self) -> float:
         """
         Exposition as % of equity
@@ -77,3 +73,11 @@ class Position:
     @property
     def ticker(self) -> float:
         return self.__data.ticker
+
+    @property
+    def size(self) -> float:
+        return self.__size
+    
+    @property
+    def data(self) -> Union[Asset, Hedge]:
+        return self.__data

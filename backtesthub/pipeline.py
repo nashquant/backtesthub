@@ -10,10 +10,11 @@ from .utils.bases import Asset, Hedge
 
 
 class Pipeline(metaclass=ABCMeta):
-
     """
+    `Pipeline Class`
+
     Pipeline is responsible for setting up
-    the `simulation case` and recursively
+    the "simulation case" and recursively
     build a sequence called `universe`, which
     provides, for a given date, the list of
     all tradeable assets.
@@ -23,12 +24,10 @@ class Pipeline(metaclass=ABCMeta):
     static and defined before the simulation
     begins. Or it can be dynamically defined
     as runs progresses.
-
     """
 
     def __init__(
         self,
-        index: Sequence[date],
         assets: Dict[str, Asset] = OrderedDict(),
         hedges: Dict[str, Hedge] = OrderedDict(),
     ):
@@ -41,8 +40,26 @@ class Pipeline(metaclass=ABCMeta):
         """ """
 
     @abstractmethod
-    def run(self):
+    def run(self) -> Sequence[Asset, Hedge]:
         """ """
+
+    def build_chain(self) -> Sequence[str]:
+
+        maturities: Dict[str, date] = {
+            asset.ticker: asset.maturity
+            for asset in self.assets
+            if asset.maturity is not None
+        }
+
+        chain: Dict[str, date] = dict(
+            sorted(
+                maturities.items(),
+                key=itemgetter(1),
+                reverse=True,
+            )
+        )
+
+        return tuple(chain.keys())
 
     @property
     def asset(self) -> Asset:
@@ -55,21 +72,3 @@ class Pipeline(metaclass=ABCMeta):
     @property
     def hedges(self) -> Dict[str, Hedge]:
         return self.__hedges
-
-    @staticmethod
-    def build_chain(self) -> Dict[str,Asset]:
-
-        maturities: Dict[str, date] = {
-            asset.ticker: asset.maturity
-            for asset in self.assets
-            if asset.maturity is not None
-        }
-
-        chain: Dict[str, date] = dict(
-            sorted(
-                maturities.items(),
-                key=itemgetter(1),
-            )
-        )
-
-        return tuple(chain.keys())

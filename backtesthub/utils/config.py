@@ -22,7 +22,6 @@ _DEFAULT_FCOMMISSION: float = float(os.getenv("DEF_FCOMM", "10"))
 _DEFAULT_VOLATILITY: float = float(os.getenv("DEF_VOL", "0.1"))
 _DEFAULT_CASH: float = float(os.getenv("DEF_CASH", "10e6"))
 _DEFAULT_BUFFER: int = int(os.getenv("DEF_BUFFER", "200"))
-_DEFAULT_STEP: int = int(os.getenv("DEF_STEP", "1"))
 _DEFAULT_SDATE: date = eval(os.getenv("DEF_SDATE", "date(2005,1,1)"))
 _DEFAULT_EDATE: date = eval(os.getenv("DEF_EDATE", "date.today()"))
 _DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "0.2"))
@@ -82,7 +81,6 @@ _COMMTYPE = dict(
 )
 
 _METHOD = dict(
-    SIZE="SIZE",
     EXPO = "EXPO",
     EWMA = "EWMA",
 )

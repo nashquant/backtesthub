@@ -9,7 +9,6 @@ from typing import Optional, Sequence
 
 from .checks import derive_asset
 from .config import (
-    _DEFAULT_STEP,
     _DEFAULT_BUFFER,
     _DEFAULT_CURRENCY,
     _DEFAULT_SLIPPAGE,
@@ -25,7 +24,10 @@ from .config import (
 class Line(np.ndarray):
 
     """
-    Numpy Ndarray Based Concept of Lines
+    `Line Base Object`
+
+    Line is a ndarray subclass implemented in order to have
+    the ability to access entries in a synchronized manner.
 
     To get a better sense about what is going on, refer to:
 
@@ -55,11 +57,8 @@ class Line(np.ndarray):
     def __len__(self):
         return len(self.__array)
 
-    def __next(self, step: int = _DEFAULT_STEP):
-        self.__buffer = min(
-            self.__buffer + step,
-            len(self) - 1,
-        )
+    def __next(self):
+        self.__buffer+=1
 
     @property
     def buffer(self) -> int:
@@ -72,26 +71,27 @@ class Line(np.ndarray):
     @property
     def series(self) -> pd.Series:
         idx = np.arange(len(self))
-
         return pd.Series(self.array, idx)
 
 
 class Data:
 
     """
-    * A data array accessor. Even though the input is a `pd.DataFrame`
-      it gets transformed into a series of Lines (`np.ndarray`) due to
-      performance purposes.
+    `Data Base Object`
+    
+    A data array accessor. Even though the input is a `pd.DataFrame`,
+    it gets transformed into a series of Lines (`np.ndarray` subclass) 
+    due to performance purposes.
 
     * Inspired by both Backtesting.py and Backtrader Systems:
       - https://github.com/kernc/backtesting.py.git
       - https://github.com/mementum/backtrader
 
-    * Data is stored in [lower-cased] columns whose index must
-      be either a date or datetime (it will be converted to date).
+    Data is stored in [lower-cased] columns whose index must be either 
+    a date or datetime (it will be converted to date).
 
-    * Note: The framework still doesn't accept timeframes different
-      than `daily`... In future updates we'll tackle this issue.
+    Note: The framework still doesn't accept timeframes different than 
+    "daily"... In future updates we'll tackle this issue.
 
     """
 
@@ -140,7 +140,6 @@ class Data:
         self.__df = data
 
     def __repr__(self):
-
         dct = {k: v for k, v in self.__df.iloc[self.__buffer].items()}
         lines = ", ".join("{}={:.2f}".format(k, v) for k, v in dct.items())
 
@@ -155,17 +154,12 @@ class Data:
     def __len__(self):
         return len(self.__df)
 
-    def next(self, step: int = _DEFAULT_STEP):
-        self.__buffer = min(
-            self.__buffer + step,
-            len(self) - 1,
-        )
-
+    def next(self):
+        self.__buffer+=1
         for line in self.__lines.values():
             line._Line__next()
 
     def add_line(self, name: str, line: Line):
-
         if not isinstance(line, Line):
             msg = f"{name} must be Line Type"
             raise TypeError(msg)
@@ -207,18 +201,19 @@ class Data:
 class Base(Data):
 
     """
+    `Base Object`
 
-    Base extends `Data` to create an
-    unique asset class that is intended
-    to hold asset/price data that is not
-    supposed to be used for trading purposes,
-    but rather assets that are used to generate
-    signals, calculate currency conversion,
-    and stuff like that.
+    Base extends `Data` to create an unique asset class 
+    that is intended to hold asset/price data that is not
+    supposed to be used for trading purposes, but rather 
+    assets that are used to generate signals, calculate 
+    currency conversion, and stuff like that.
 
-    Therefore there's no need to define
-    properties such as mult, comm, etc.
+    Therefore there's no need to define properties such as 
+    multiplier, commission scheme, etc.
 
+    Note: The name base might be confusing... Please note
+    that the name base is different from "Base Class".
     """
 
     def __init__(
@@ -238,33 +233,35 @@ class Base(Data):
 class Asset(Base):
 
     """
+    `Asset Object`
 
-    Different from backtesting.py, we treat the basic Data
-    Structure as having all properties of an asset, such as
-    ticker, currency, commission (value and type), and
-    identifying booleans to indicate things such as whether
-    the asset is a stock or a future, whether its
-    OHLC data is given in [default] price or rates.
+    Asset Extends `Base` including features such as ticker, 
+    currency, commission (value and type), and identifying 
+    booleans to indicate things such as whether the asset 
+    is a stock or a future, whether its OHLC data is given 
+    in [default] price or rates.
 
-    Asset Extends `Base` including features such as:
+    Parameters
+    -----------
 
-    * `mult` is the contract base price multiplier,
-      whenever this is declared, the data-type is
-      assumed to be futures-like.
+    `multiplier`: contract base price multiplier, whenever this 
+      is declared, the data-type is assumed to be futures-like.
 
-    * `comm` is the broker's commission per trade
+    `commission`: broker's commission per trade, may change
+      depending on the commission type.
 
-    * `ctype` is the commission type, which are by
-      default set to "PERC" to stock-like assets (S),
-      while "ABS" for future-like ones (F).
+    `commtype` commission type, which is by default set to "PERC" 
+      to stock-like assets, while "ABS" for future-like ones.
 
-    * `slip` is the estimated mean slippage per trade.
-      Slippage exists to account for the effects of bid-ask
-      spread.
+    `slippage` estimated mean slippage per trade. Slippage exists 
+      to account for the effects of bid-ask spread.
 
-    * `maturity` is the maturity date of an asset. Specially
-      import for derivative contracts such as options and futures.
+    `currency` asset's quotation currency. Must be among the
+      currencies recognized by the algorithm.
 
+    `maturity` derivatives-only parameter. Maturity registers
+      the maturity date of the asset, necessary for operations
+      such as futures rolling.
     """
 
     def __init__(

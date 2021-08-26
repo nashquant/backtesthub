@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import date
 from numbers import Number
 from collections import OrderedDict
-from typing import Dict, Sequence, Union
+from typing import Dict, Sequence, Union, Optional
 
 from .broker import Broker
 from .pipeline import Pipeline
@@ -29,12 +29,14 @@ class Engine:
     other objects (Strategy, Broker, Position, ...) in order to 
     properly run the simulation.
 
+    It is also responsible for manipulating the global index and
+    guaranteeing that all Data/Lines/Broker are synchronized.
+
     Lots of features such as intraday operations, multi-calendar 
     runs, live trading, etc. are still pending development.
 
     Some settings may be changed through environment variables 
     configuration. Refer to .utils.config to get more info.
-
     """
 
     def __init__(
@@ -65,7 +67,6 @@ class Engine:
         )
 
         self.__pipeline: Pipeline = pipeline(
-            index=self.__index,
             assets=self.__assets,
             hedges=self.__hedges,
         )
@@ -87,7 +88,7 @@ class Engine:
         `Base add function`
 
         - Main Base is assumed to be added first.
-        - Main H_Base is assumed to be added second.
+        - Main H_Base is assumed to be added last.
         - Other bases are the remaining ones. 
         """
 
@@ -105,6 +106,7 @@ class Engine:
             self.__currs.update(
                 {ticker: base},
             )
+            self.__broker.add_curr(base)
         if ticker.upper() == _DEFAULT_CARRY:
             self.__carry.update(
                 {ticker: base},
@@ -155,7 +157,7 @@ class Engine:
             {ticker: hedge},
         )
 
-    def run(self) -> pd.DataFrame:
+    def run(self) -> Optional[pd.DataFrame]:
         if not self.__assets:
             return
 
@@ -165,9 +167,9 @@ class Engine:
         for self.dt in self.loop:
             for data in self.datas.values(): 
                 data.next()
+            self.universe = self.__pipeline.run()
             
             self.__broker.beg_of_period()
-            self.universe = self.__pipeline.run()
             self.__strategy.next()
             
             self.__broker.end_of_period()
@@ -190,7 +192,11 @@ class Engine:
 
     @property
     def base(self) -> Base:
-        return self.__bases.values()[0]
+        return tuple(self.__bases.values())[0]
+    
+    @property
+    def h_base(self) -> Base:
+        return tuple(self.__bases.values())[-1]
 
     @property
     def bases(self) -> Dict[str, Base]:
