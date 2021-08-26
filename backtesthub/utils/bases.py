@@ -113,7 +113,6 @@ class Data:
                 index=index,
                 method="ffill",
             )
-
             data = data.sort_index(
                 ascending=True,
             )
@@ -131,7 +130,6 @@ class Data:
             data = data.sort_index(
                 ascending=True,
             )
-
             index = tuple(data.index)
 
         self.__lines = {l.lower(): Line(arr) for l, arr in data.items()}
@@ -233,7 +231,7 @@ class Base(Data):
 class Asset(Base):
 
     """
-    `Asset Object`
+    `Asset Class`
 
     Asset Extends `Base` including features such as ticker, 
     currency, commission (value and type), and identifying 
@@ -287,7 +285,7 @@ class Asset(Base):
         multiplier: Optional[Number] = None,
         maturity: Optional[date] = None,
     ):
-        if slippage < 0:
+        if slippage<0 or slippage>1:
             msg = "Invalid value for slippage"
             raise ValueError(msg)
 
@@ -368,24 +366,25 @@ class Asset(Base):
 class Hedge(Asset):
 
     """
-    Hedge Asset have their own sizing
-    rules, which are dependent on the
-    assets that compose the "long" side,
-    the hedging method (`hmethod`) and
-    the hedging asset.
+    `Hedge Class`
 
-    They are treated separately to
-    highlight the difference, making
-    possible to rapidly identify whether
-    a given data structure is an `Asset`
-    or `Hedge` instance.
+    Hedge Class is extended from `Asset` but implements its own 
+    hedging method and assigns a specific target for that hedge.
 
+    We use the convention that if no target is assigned (None), 
+    the target would be anything that is currently being held 
+    at the `Pipeline.Universe`.
+    
+    They are treated separately to highlight the difference, 
+    making possible to rapidly identify whether a given data 
+    structure exists for the purpose of "alpha" or "hedge".
     """
 
     def __init__(
         self,
         ticker: str,
         data: pd.DataFrame,
+        target: Optional[Asset] = None,
         index: Sequence[date] = None,
         hmethod: str = _HMETHOD["EXPO"],
         **commkwargs,
@@ -397,9 +396,18 @@ class Hedge(Asset):
             index=index,
             **commkwargs,
         )
-
+        
+        self.__target = target
         self.__hmethod = hmethod
 
+    def add_target(self, target: Asset):
+        if isinstance(target, Asset):
+            self.__target = target
+
     @property
-    def hmethod(self):
+    def target(self) -> Optional[Asset]:
+        return self.__target
+
+    @property
+    def hmethod(self) -> str:
         return self.__hmethod
