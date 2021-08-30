@@ -11,6 +11,7 @@ from .position import Position
 from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import (
     _DEFAULT_BUFFER,
+    _DEFAULT_CRATE,
     _DEFAULT_CASH,
     _STATUS,
 )
@@ -48,13 +49,14 @@ class Broker:
         self.__currs: Dict[str, Base] = {}
         self.__positions: Dict[str, Position] = {}
         self.__buffer: int = _DEFAULT_BUFFER
+        self.__carry: float = _DEFAULT_CRATE
 
     def add_carry(self, carry: Base):
         if isinstance(carry, Base):
             msg = "Wrong input type for carry"
             raise TypeError(msg)
 
-        self.carry = carry
+        self.__carry = carry
 
     def add_curr(self, curr: Base):
         if isinstance(curr, Base):
@@ -299,15 +301,17 @@ class Broker:
 
     @property
     def carry(self) -> Optional[float]:
-        if not hasattr(self, "carry"):
-            return
-        return self.carry.close[0]
+        if isinstance(self.__carry, Base):
+            return self.__carry.close[0]
+        
+        return self.__carry
 
     @property
     def last_carry(self) -> Optional[float]:
-        if not hasattr(self, "carry"):
-            return
-        return self.carry.close[-1]
+        if isinstance(self.__carry, Base):
+            return self.__carry.close[-1]
+        
+        return self.__carry
 
     @property
     def positions(self) -> Dict[str, Position]:

@@ -91,31 +91,19 @@ class Order:
         return self.__side
 
     @property
-    def commission(self) -> Number:
+    def total_comm(self) -> Number:
+        """
+        Total Commission (Absolute $) 
+        """
         comm = self.__data.commission
         commtype = self.__data.commtype
 
-        if commtype == _COMMTYPE["ABS"]:
-            return comm
-
-        elif commtype == _COMMTYPE["PERC"]:
+        if commtype == _COMMTYPE["PERC"]:
             if self.exec_price is None: 
                 return 0
-            return self.exec_price * comm
+            comm = self.exec_price * comm
 
-    @property
-    def total_comm(self) -> Number:
-        """
-        Commission as absolute value
-        """
-        return self.commission * abs(self.__size)
-
-    @property
-    def total_margin(self) -> Number:
-        """
-        Margin as % of Expo value
-        """
-        return self.__data.margin * abs(self.__size)
+        return comm * abs(self.__size)
 
     @property
     def exec_price(self) -> Number:
