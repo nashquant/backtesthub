@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Sequence, Union
 from .order import Order
 from .position import Position
 
-from .utils.bases import Line, Base, Asset, Hedge
+from .utils.bases import Base, Asset, Hedge
 from .utils.config import (
     _DEFAULT_BUFFER,
     _DEFAULT_CRATE,
@@ -24,32 +24,18 @@ class Broker:
         cash: Number = _DEFAULT_CASH,
     ):
         self.__index = index
+        self.__length = len(index)
         self.__buffer = _DEFAULT_BUFFER
-        self.__lines: Dict[str, Line] = {}
-
-        self.__lines["__index"] = Line(
-            array=index,
-        )
-
-        self.__lines["cash"] = Line(
-            array=[cash] * len(index),
-        )
-
-        self.__lines["equity"] = Line(
-            array=[cash] * len(index),
-        )
-
-        self.__lines["open"] = Line(
-            array=[cash] * len(index),
-        )
-
+        self.__carry: float = _DEFAULT_CRATE
         self.__orders: Dict[str, Order] = {}
         self.__cancels: List[Order] = []
         self.__executed: List[Order] = []
         self.__currs: Dict[str, Base] = {}
         self.__positions: Dict[str, Position] = {}
-        self.__buffer: int = _DEFAULT_BUFFER
-        self.__carry: float = _DEFAULT_CRATE
+
+        self.__cash = [cash] * self.__length
+        self.__open = [cash] * self.__length
+        self.__equity = [cash] * self.__length
 
     def add_carry(self, carry: Base):
         if isinstance(carry, Base):
@@ -105,8 +91,11 @@ class Broker:
 
         """
 
-        self.cash[0] = self.last_cash
-        self.open[0] = self.last_equity
+        self.__next()
+
+        self.__cash[self.__buffer] = self.last_cash
+        self.__open[self.__buffer] = self.last_equity
+        self.__equity[self.__buffer] = self.last_equity
 
         for pos in self.position_stack:
             data = pos.data
@@ -114,16 +103,17 @@ class Broker:
 
             MTM = pos.size * (data.open[0] - data.close[-1]) * mult
 
-            self.open[0] += MTM
+            self.__open[self.__buffer] += MTM
+            self.__equity[self.__buffer] += MTM
             if not data.stocklike:
-                self.cash[0] += MTM
+                self.__cash[self.__buffer] += MTM
 
             ## When cash is consumed, it cannot yield carry ##
             ## Rateslike assets are swap-like against carry ##
             if data.cashlike:
                 if self.last_carry is not None:
                     dollar_expo = pos.size * mult * data.close[-1]
-                    self.cash[0] -= dollar_expo * self.last_carry
+                    self.__cash[self.__buffer] -= dollar_expo * self.last_carry
                 else:
                     warn("Carry values were not inputed..")
 
@@ -172,18 +162,19 @@ class Broker:
         if order.data.stocklike:
             CASH += order.size * order.exec_price
 
-        if self.cash[0] < CASH:
+        if self.__cash[self.__buffer] < CASH:
             msg = f"{order} requires too much cash!"
             raise ValueError(msg)
         else:
-            self.cash[0] -= CASH
+            self.__cash[self.__buffer] -= CASH
 
         M2M = order.size * (order.exec_price - data.open[0]) * mult
-        if self.open[0] < M2M:
+        if self.__open[self.__buffer] < M2M:
             msg = f"{order} makes equity below zero!"
             raise ValueError(msg)
         else:
-            self.open[0] -= M2M
+            self.__open[self.__buffer] -= M2M
+            self.__equity[self.__buffer] -= M2M
 
         if not data.ticker in self.__positions:
             position = Position(data=data, size=order.size)
@@ -195,7 +186,7 @@ class Broker:
             if not position.size:
                 self.__positions.pop(data.ticker)
 
-        order.exec_date = self.date
+        order.exec_date = data.date
         order.status = _STATUS["EXEC"]
         self.__executed.append(order)
 
@@ -235,14 +226,13 @@ class Broker:
 
         """
 
-        self.equity[0] = self.open[0]
-
         for pos in self.position_stack:
-            data, mult = pos.data, pos.data.multiplier
+            data = pos.data
+            mult = data.multiplier
             MTM = pos.size * (data.close[0] - data.open[0]) * mult
-            self.equity[0] += MTM
+            self.__equity[self.__buffer] += MTM
             if not data.stocklike:
-                self.cash[0] += MTM
+                self.__cash[self.__buffer] += MTM
 
     def __cancel_order(self, order: Order):
         if order.status == _STATUS["WAIT"]:
@@ -253,21 +243,13 @@ class Broker:
 
     def __repr__(self):
         kls = self.__class__.__name__
-        return f"{kls}(Cash: {self.curr_cash}, Equity: {self.curr_equity})"
-
-    def __getitem__(self, line: str):
-        return self.__lines.get(line.lower())
-
-    def __getattr__(self, line: str):
-        return self.__lines.get(line.lower())
+        return f"{kls}(Cash: {self.curr_cash:.2f}, Equity: {self.curr_equity:2f})"
 
     def __len__(self):
-        return len(self.__index)
+        return self.__length
 
-    def next(self):
+    def __next(self):
         self.__buffer += 1
-        for line in self.__lines.values():
-            line._Line__next()
 
     def get_position(self, ticker: str) -> Optional[Position]:
         return self.__positions.get(ticker)
@@ -276,28 +258,32 @@ class Broker:
         return self.__orders.get(ticker)
 
     @property
+    def date(self) -> date:
+        return self.__index[self.__buffer]
+
+    @property
     def curr_cash(self) -> Number:
-        return self.__lines["cash"][0]
+        return self.__cash[self.__buffer]
 
     @property
     def curr_equity(self) -> Number:
-        return self.__lines["equity"][0]
+        return self.__equity[self.__buffer]
 
     @property
     def curr_open(self) -> Number:
-        return self.__lines["open"][0]
+        return self.__open[self.__buffer]
 
     @property
     def last_cash(self) -> Number:
-        return self.__lines["cash"][-1]
+        return self.__cash[self.__buffer-1]
 
     @property
     def last_equity(self) -> Number:
-        return self.__lines["equity"][-1]
+        return self.__equity[self.__buffer-1]
 
     @property
     def last_open(self) -> Number:
-        return self.__lines["open"][-1]
+        return self.__open[self.__buffer-1]
 
     @property
     def carry(self) -> Optional[float]:
@@ -333,14 +319,3 @@ class Broker:
             return []
         return list(self.__positions.values())
 
-    @property
-    def index(self) -> Line:
-        return self.__lines["__index"]
-
-    @property
-    def date(self) -> str:
-        return self.index[0].isoformat()
-
-    @property
-    def lines(self) -> Sequence[str]:
-        return list(self.__lines.keys())

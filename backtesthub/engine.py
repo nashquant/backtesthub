@@ -163,9 +163,7 @@ class Engine:
             
             self.__broker.beg_of_period()
             self.__strategy.next()
-            
             self.__broker.end_of_period()
-            self.__broker.next()
 
     def __len__(self) -> int:
         return len(self.__index)

@@ -176,7 +176,7 @@ class Data:
 
     @property
     def date(self) -> str:
-        return self.index[0].isoformat()
+        return self.__lines["__index"][0]
 
     @property
     def df(self) -> pd.DataFrame:

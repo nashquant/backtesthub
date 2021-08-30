@@ -2,6 +2,7 @@
 
 import math
 import numpy as np
+from datetime import date
 from numbers import Number
 from abc import ABCMeta, abstractmethod
 from typing import Callable, Dict, Union, Optional, Sequence
@@ -42,6 +43,11 @@ class Strategy(metaclass=ABCMeta):
     @abstractmethod
     def next():
         """ """
+
+    def order_log(self, data: Union[Asset, Hedge], size: Number):
+        if not size: return
+        txt = f"Order issued for {data.ticker}, Size: {size}"
+        self.log(f"{data.date.isoformat()}, {txt}")
 
     def I(
         self,
@@ -159,7 +165,7 @@ class Strategy(metaclass=ABCMeta):
         min_size: int = _DEFAULT_MIN_SIZE,
         limit: Optional[float] = None,
         stop: Optional[float] = None,
-    ):
+    ) -> Number:
         """
         `Order Target Generation`
 
@@ -249,6 +255,8 @@ class Strategy(metaclass=ABCMeta):
             size=delta,
             limit=limit,
         )
+
+        return delta
 
     def get_universe(self) -> Sequence[Union[Asset, Hedge]]:
         return self.__pipeline.universe

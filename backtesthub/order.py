@@ -18,10 +18,10 @@ class Order:
         self.__data = data
         self.__size = size
         self.__limit = limit
-        self.__status = _STATUS["WAIT"]
+        self.__status: str = _STATUS["WAIT"]
 
-        self.__isbuy = self.__size > 0
-        self.__issell = self.__size < 0
+        self.__isbuy: bool = self.__size > 0
+        self.__issell: bool = self.__size < 0
 
         if not isinstance(data, (Asset, Hedge)):
             msg = "Order `data` must be either an Asset or a Hedge instance!"
@@ -31,10 +31,10 @@ class Order:
             msg = "Order `size` must be an non-zero number"
             raise ValueError(msg)
 
-        self.__ticker = data.ticker
-        self.__issue_date = data.date
-        self.__exec_date = None
-        self.__side = 1 if self.__isbuy else -1
+        self.__ticker: str = data.ticker
+        self.__issue_date: date = data.date
+        self.__exec_date: Optional[date] = None
+        self.__side: int = 1 if self.__isbuy else -1
 
     def __repr__(self):
         kls = self.__class__.__name__
@@ -99,9 +99,10 @@ class Order:
         commtype = self.__data.commtype
 
         if commtype == _COMMTYPE["PERC"]:
-            if self.exec_price is None: 
+            exec_price = self.exec_price 
+            if exec_price is None: 
                 return 0
-            comm = self.exec_price * comm
+            comm = exec_price * comm
 
         return comm * abs(self.__size)
 
