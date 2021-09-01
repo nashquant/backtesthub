@@ -47,7 +47,7 @@ class Broker:
         self.__tpnl: dict[str, Number] = ddict(float)  ## trade
         self.__cpnl: dict[str, Number] = ddict(float)  ## carry
 
-        self.__history: Dict[date, Sequence[Position]] = {}
+        self.__records: Sequence[Union[date, Number]] = list()
 
     def add_carry(self, carry: Base):
         if not isinstance(carry, Base):
@@ -93,6 +93,11 @@ class Broker:
 
         order = Order(data, size, limit)
         self.__orders.update({ticker: order})
+
+        if ticker not in self.__positions:
+            self.__positions.update(
+                {ticker: Position(data, 0)},
+            )
 
     def close(self, ticker: str):
         if not ticker in self.__positions:
@@ -142,7 +147,9 @@ class Broker:
             ## Rateslike assets are swap-like against carry ##
             if data.cashlike:
                 dollar_expo = pos.size * mult * data.close[-1]
-                self.__cash[self.__buffer] -= dollar_expo * self.last_carry
+                carry = -dollar_expo * self.last_carry
+                self.__cash[self.__buffer] += carry
+                self.__cpnl[ticker] += carry
 
         for order in self.order_stack:
             if order.status == _STATUS["WAIT"]:
@@ -199,17 +206,10 @@ class Broker:
         self.__equity[self.__buffer] += M2M
         self.__tpnl[ticker] += M2M
 
-        if not ticker in self.__positions:
-            position = Position(data, size)
-            self.__positions.update(
-                {ticker: position},
-            )
-
-        else:
-            position = self.__positions[ticker]
-            position.add(delta=order.size)
-            if not position.size:
-                self.__positions.pop(ticker)
+        position = self.__positions[ticker]
+        position.add(delta=order.size)
+        if not position.size:
+            self.__positions.pop(ticker)
 
         order.exec_date = data.date
         order.status = _STATUS["EXEC"]
@@ -258,27 +258,41 @@ class Broker:
         See these two PNL account methods match!
 
         """
+
         for pos in self.position_stack:
-            data = pos.data
-            ticker = pos.ticker
-            mult = data.multiplier
-            MTM = pos.size * (data.close[0] - data.open[0]) * mult
+            data, ticker = pos.data, pos.ticker
+            size, mult = pos.size, data.multiplier
+            order = self.__orders.get(ticker)
+            price, open = data.close[0], data.open[0]
+            MTM = size * (price - open) * mult
             self.__equity[self.__buffer] += MTM
+            self.__ipnl[ticker] += MTM
             if not data.stocklike:
                 self.__cash[self.__buffer] += MTM
 
-        self.__history[self.date] = [
-            {
-                "ticker": ticker,
-                "size": pos.size,
-                "signal": pos.signal,
-                "opnl": self.__opnl[ticker],
-                "inl": self.__ipnl[ticker],
-                "tpnl": self.__tpnl[ticker],
-                "cpnl": self.__cpnl[ticker],
-            }
-            for pos in self.position_stack
-        ]
+            if order:
+                target = size + order.size
+            else:
+                target = size
+
+            texpo = target * mult * price
+            texpo = texpo / self.curr_equity
+
+            self.__records.append(
+                {
+                    "date": self.date.isoformat(),
+                    "ticker": ticker,
+                    "size": size,
+                    "signal": pos.signal,
+                    "opnl": self.__opnl[ticker],
+                    "inl": self.__ipnl[ticker],
+                    "tpnl": self.__tpnl[ticker],
+                    "cpnl": self.__cpnl[ticker],
+                    "refvol": data.volatility[0],
+                    "target": target,
+                    "texpo": texpo,
+                }
+            )
 
     def __cancel_order(self, order: Order):
         if order.status == _STATUS["WAIT"]:
@@ -383,17 +397,18 @@ class Broker:
 
     @property
     def df(self) -> pd.DataFrame:
+        dates = [dt.isoformat() for dt in self.index]
+
         return pd.DataFrame.from_records(
-            data={
-                "date": self.index,
+            {
+                "date": dates,
                 "cash": self.cash,
                 "open": self.open,
                 "equity": self.equity,
                 "quota": self.quotas,
-            },
-            index="date",
+            }
         )
 
     @property
-    def history(self) -> Dict[str, Sequence[Position]]:
-        return self.__history
+    def rec(self) -> pd.DataFrame:
+        return pd.DataFrame.from_records(self.__records)
