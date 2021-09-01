@@ -15,13 +15,11 @@ from backtesthub.pipelines import Single
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
-from backtesthub.utils.math import fill_OHLC
 from backtesthub.utils.config import (
     _DEFAULT_SDATE,
     _DEFAULT_EDATE,
     _DEFAULT_URL,
 )
-
 
 class System(Strategy):
 
@@ -67,19 +65,18 @@ engine = create_engine(
 ##### LOYALL DATABASE OPERATIONS #####
 
 base = "IMAB5+"
-obases= ["CARRY"]
 asset = "IB5M11"
 ohlc = ["open", "high", "low", "close"]
 
 base_sql = (
-    "SELECT date, open, high, low, close FROM quant.IndexesHistory "
+    "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
     f"WHERE ticker = '{base}' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
-obase_sql = (
+carry_sql = (
     "SELECT date, open, high, low, close FROM quant.IndexesHistory "
-    f"WHERE ticker IN ({str(obases)[1:-1]}) AND date between "
+    f"WHERE ticker = 'CARRY' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
@@ -92,11 +89,13 @@ price_sql = (
 
 price = pd.read_sql(price_sql, engine)
 b_price = pd.read_sql(base_sql, engine)
-ob_price = pd.read_sql(obase_sql, engine)
+carry = pd.read_sql(carry_sql, engine)
 
 price.set_index("date", inplace=True)
 b_price.set_index("date", inplace=True)
-ob_price.set_index("date", inplace=True)
+carry.set_index("date", inplace=True)
+
+carry = carry.pct_change()
 
 ########################################
 
@@ -105,12 +104,10 @@ backtest.add_base(
     data=b_price[ohlc],
 )
 
-for obase in obases:
-
-    backtest.add_base(
-        ticker=obase,
-        data=ob_price[ohlc],
-    )
+backtest.add_base(
+    ticker='carry',
+    data=carry[ohlc],
+)
 
 
 backtest.add_asset(

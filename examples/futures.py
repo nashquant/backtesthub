@@ -30,7 +30,7 @@ class System(Strategy):
     def init(self):
         self.I(
             self.base,
-            SMACross,
+            Default,
             self.p1,
             self.p2,
         )
@@ -65,13 +65,13 @@ engine = create_engine(
 
 ##### LOYALL DATABASE OPERATIONS #####
 
-base = "SPX"
+base = "IBOV"
 obases = ["USDBRL"]
-commodity = "ES"
+commodity = "IND"
 ohlc = ["open", "high", "low", "close"]
 
 base_sql = (
-    "SELECT date, open, high, low, close FROM quant.IndexesHistory "
+    "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
     f"WHERE ticker = '{base}' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )

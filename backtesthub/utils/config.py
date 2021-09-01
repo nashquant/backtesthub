@@ -11,7 +11,7 @@ dotenv.load_dotenv()
 _DEFAULT_MIN_SIZE: int = int(os.getenv("DEF_MIN_SIZE", "1"))
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
 _DEFAULT_CARRY: str = str(os.getenv("DEF_CARRY", "CARRY"))
-_DEFAULT_CRATE: float = float(os.getenv("DEF_CRATE", "1.0000394862194537"))
+_DEFAULT_CRATE: float = float(os.getenv("DEF_CRATE", "2e-04"))  ## 5%y.y
 _DEFAULT_SIZING: str = str(os.getenv("DEF_SIZING", "EWMA"))
 _DEFAULT_SLIPPAGE: float = float(os.getenv("DEF_SLIP", "2e-04"))
 _DEFAULT_SCOMMISSION: float = float(os.getenv("DEF_SCOMM", "10e-04"))
@@ -26,12 +26,25 @@ _DEFAULT_VPARAM: float = float(os.getenv("DEF_VPARAM", "0.05"))
 _DEFAULT_LAG: int = int(os.getenv("DEF_LAG", "4"))
 _DEFAULT_ECHO: bool = bool(os.getenv("DEF_ECHO", "True"))
 _DEFAULT_URL = {
-    "drivername": str(os.getenv("_DRIVER","")),
-    "username": str(os.getenv("_USER","")),
-    "password": str(os.getenv("_PASSWORD","")),
-    "host": str(os.getenv("_HOST","")),
-    "database": str(os.getenv("_DATABASE","")),
+    "drivername": str(os.getenv("_DRIVER", "")),
+    "username": str(os.getenv("_USER", "")),
+    "password": str(os.getenv("_PASSWORD", "")),
+    "host": str(os.getenv("_HOST", "")),
+    "database": str(os.getenv("_DATABASE", "")),
 }
+
+_MIN_VOL = eval(
+    os.getenv(
+        "_MIN_VOL",
+        str(
+            {
+                "ES": 0.12,
+                "IND": 0.15,
+                "DOL": 0.10,
+            }
+        ),
+    )
+)
 
 _CURR = (
     "BRL",

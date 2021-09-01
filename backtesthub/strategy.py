@@ -16,6 +16,7 @@ from .utils.config import (
     _DEFAULT_CURRENCY,
     _DEFAULT_SIZING,
     _DEFAULT_THRESH,
+    _MIN_VOL,
     _METHOD,
 )
 
@@ -215,8 +216,11 @@ class Strategy(metaclass=ABCMeta):
         if method == _METHOD["EWMA"]:
             vol_target = _DEFAULT_VOLATILITY
             vol_asset = data.volatility[0]
+            if data.asset in _MIN_VOL:
+                min_vol = _MIN_VOL[data.asset]
+                vol_asset = max(vol_asset, min_vol)
+            
             target = vol_target/ vol_asset 
-
             size = signal * target * equity / price
 
         elif method == _METHOD["EXPO"]:
@@ -276,6 +280,10 @@ class Strategy(metaclass=ABCMeta):
     @property
     def bases(self) -> Dict[str, Base]:
         return self.__bases
+    
+    @property
+    def asset(self) -> Asset:
+        return tuple(self.__assets.values())[0]
 
     @property
     def assets(self) -> Dict[str, Asset]:
