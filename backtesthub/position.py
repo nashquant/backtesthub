@@ -65,6 +65,10 @@ class Position:
         return self.__data.ticker
 
     @property
+    def signal(self) -> float:
+        return self.__data.signal[0]
+
+    @property
     def size(self) -> float:
         return self.__size
     

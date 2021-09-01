@@ -6,16 +6,12 @@ import dotenv
 
 from datetime import date
 
-dotenv_path = os.path.join(
-    os.path.dirname(__file__),
-    ".env",
-)
-dotenv.load_dotenv(dotenv_path)
+dotenv.load_dotenv()
 
 _DEFAULT_MIN_SIZE: int = int(os.getenv("DEF_MIN_SIZE", "1"))
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
 _DEFAULT_CARRY: str = str(os.getenv("DEF_CARRY", "CARRY"))
-_DEFAULT_CRATE: float = float(os.getenv("DEF_CRATE", "1.0000394862194537")) ##(1.01)^(1/252)
+_DEFAULT_CRATE: float = float(os.getenv("DEF_CRATE", "1.0000394862194537"))
 _DEFAULT_SIZING: str = str(os.getenv("DEF_SIZING", "EWMA"))
 _DEFAULT_SLIPPAGE: float = float(os.getenv("DEF_SLIP", "2e-04"))
 _DEFAULT_SCOMMISSION: float = float(os.getenv("DEF_SCOMM", "10e-04"))
@@ -29,7 +25,13 @@ _DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "0.2"))
 _DEFAULT_VPARAM: float = float(os.getenv("DEF_VPARAM", "0.05"))
 _DEFAULT_LAG: int = int(os.getenv("DEF_LAG", "4"))
 _DEFAULT_ECHO: bool = bool(os.getenv("DEF_ECHO", "True"))
-
+_DEFAULT_URL = {
+    "drivername": str(os.getenv("_DRIVER","")),
+    "username": str(os.getenv("_USER","")),
+    "password": str(os.getenv("_PASSWORD","")),
+    "host": str(os.getenv("_HOST","")),
+    "database": str(os.getenv("_DATABASE","")),
+}
 
 _CURR = (
     "BRL",
@@ -83,8 +85,8 @@ _COMMTYPE = dict(
 )
 
 _METHOD = dict(
-    EXPO = "EXPO",
-    EWMA = "EWMA",
+    EXPO="EXPO",
+    EWMA="EWMA",
 )
 
 

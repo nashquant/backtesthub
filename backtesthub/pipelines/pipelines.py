@@ -22,11 +22,12 @@ class Rolling(Pipeline):
         self.build_chain(), self.apply_roll()
 
     def next(self) -> Sequence[Union[Asset, Hedge]]:
-        ref_date = self.main[_DEFAULT_LAG]
-        while ref_date > self.maturity:
-            self.broker.close(self.ticker)
-            self.apply_roll()
-        return self.universe
+        if self.main.buffer + _DEFAULT_LAG < len(self.main):
+            ref_date = self.main[_DEFAULT_LAG]
+            while ref_date > self.maturity:
+                self.broker.close(self.ticker)
+                self.apply_roll()
+            return self.universe
 
     def apply_roll(self):
         if not self.chain:

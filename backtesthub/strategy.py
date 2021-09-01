@@ -2,7 +2,6 @@
 
 import math
 import numpy as np
-from datetime import date
 from numbers import Number
 from abc import ABCMeta, abstractmethod
 from typing import Callable, Dict, Union, Optional, Sequence
@@ -141,13 +140,13 @@ class Strategy(metaclass=ABCMeta):
         for asset in assets.values():
             for line in new_lines:
                 line = line.lower()
-
                 if not line in base_lines:
                     continue
+                obj = eval(f"base.{line}")
 
                 asset.add_line(
                     name=line,
-                    line=eval(f"base.{line}"),
+                    line=Line(obj),
                 )
 
     def order_target(

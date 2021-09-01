@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from numbers import Number
 from datetime import date
+from collections import defaultdict as ddict
 from typing import Dict, List, Optional, Sequence, Union
 
 from .order import Order
@@ -21,9 +22,11 @@ from .utils.config import (
 class Broker:
     def __init__(
         self,
+        echo: bool,
         index: Sequence[date],
         cash: Number = _DEFAULT_CASH,
     ):
+        self.__echo = echo
         self.__index = index
         self.__startcash = cash
         self.__length = len(index)
@@ -38,6 +41,13 @@ class Broker:
         self.__cash = np.ones(self.__length) * cash
         self.__open = np.ones(self.__length) * cash
         self.__equity = np.ones(self.__length) * cash
+
+        self.__opnl: dict[str, Number] = ddict(float)  ## overnight
+        self.__ipnl: dict[str, Number] = ddict(float)  ## intraday
+        self.__tpnl: dict[str, Number] = ddict(float)  ## trade
+        self.__cpnl: dict[str, Number] = ddict(float)  ## carry
+
+        self.__history: Dict[date, Sequence[Position]] = {}
 
     def add_carry(self, carry: Base):
         if not isinstance(carry, Base):
@@ -67,24 +77,28 @@ class Broker:
         - Updates Open Orders Dictionary.
 
         """
-        pending = self.__orders.get(data.ticker)
+        ticker = data.ticker
+        pending = self.__orders.get(ticker)
+
+        if self.__echo:
+            txt = (
+                f"Broker<Order Received for "
+                f"{ticker}, Size: {size:.2f}, "
+                f"Price: {data.close[0]:.2f}>"
+            )
+            print(f"{self.date.isoformat()}, {txt}")
 
         if pending is not None:
             self.__cancel_order(pending)
 
         order = Order(data, size, limit)
-        self.__orders.update({data.ticker: order})
+        self.__orders.update({ticker: order})
 
     def close(self, ticker: str):
         if not ticker in self.__positions:
             return
         pos = self.__positions.get(ticker)
-
-        order = Order(
-            data = pos.data, 
-            size = -pos.size, 
-        )
-        self.__orders.update({ticker: order})
+        order = self.new_order(pos.data, -pos.size)
 
     def beg_of_period(self):
         """
@@ -104,18 +118,23 @@ class Broker:
 
         """
 
+        self.__opnl.clear(), self.__ipnl.clear()
+        self.__cpnl.clear(), self.__tpnl.clear()
+
         self.__cash[self.__buffer] = self.last_cash
         self.__open[self.__buffer] = self.last_equity
         self.__equity[self.__buffer] = self.last_equity
 
         for pos in self.position_stack:
             data = pos.data
+            ticker = data.ticker
             mult = data.multiplier
 
             MTM = pos.size * (data.open[0] - data.close[-1]) * mult
 
             self.__open[self.__buffer] += MTM
             self.__equity[self.__buffer] += MTM
+            self.__opnl[ticker] += MTM
             if not data.stocklike:
                 self.__cash[self.__buffer] += MTM
 
@@ -157,37 +176,52 @@ class Broker:
         limit price is not feasible for execution.
 
         """
-        if order.exec_price is None:
+        exec_price = order.exec_price
+        if exec_price is None:
             return
 
         data = order.data
+        size = order.size
+        ticker = data.ticker
         mult = data.multiplier
 
         total_comm = order.total_comm
+        self.__tpnl[ticker] += total_comm
         CASH = M2M = total_comm
 
         if order.data.stocklike:
-            CASH += order.size * order.exec_price
+            CASH += size * exec_price
 
         self.__cash[self.__buffer] -= CASH
 
-        M2M = order.size * (order.exec_price - data.open[0]) * mult
-        self.__open[self.__buffer] -= M2M
-        self.__equity[self.__buffer] -= M2M
+        M2M = order.size * (data.open[0] - exec_price) * mult
+        self.__open[self.__buffer] += M2M
+        self.__equity[self.__buffer] += M2M
+        self.__tpnl[ticker] += M2M
 
-        if not data.ticker in self.__positions:
-            position = Position(data=data, size=order.size)
-            self.__positions.update({data.ticker: position})
+        if not ticker in self.__positions:
+            position = Position(data, size)
+            self.__positions.update(
+                {ticker: position},
+            )
 
         else:
-            position = self.__positions[data.ticker]
+            position = self.__positions[ticker]
             position.add(delta=order.size)
             if not position.size:
-                self.__positions.pop(data.ticker)
+                self.__positions.pop(ticker)
 
         order.exec_date = data.date
         order.status = _STATUS["EXEC"]
         self.__executed.append(order)
+
+        if self.__echo:
+            txt = (
+                f"Broker<Order Executed for "
+                f"{ticker}, Size: {size:.2f}, "
+                f"Price: {exec_price:.2f}>"
+            )
+            print(f"{self.date.isoformat()}, {txt}")
 
     def end_of_period(self):
         """
@@ -224,14 +258,27 @@ class Broker:
         See these two PNL account methods match!
 
         """
-
         for pos in self.position_stack:
             data = pos.data
+            ticker = pos.ticker
             mult = data.multiplier
             MTM = pos.size * (data.close[0] - data.open[0]) * mult
             self.__equity[self.__buffer] += MTM
             if not data.stocklike:
                 self.__cash[self.__buffer] += MTM
+
+        self.__history[self.date] = [
+            {
+                "ticker": ticker,
+                "size": pos.size,
+                "signal": pos.signal,
+                "opnl": self.__opnl[ticker],
+                "inl": self.__ipnl[ticker],
+                "tpnl": self.__tpnl[ticker],
+                "cpnl": self.__cpnl[ticker],
+            }
+            for pos in self.position_stack
+        ]
 
     def __cancel_order(self, order: Order):
         if order.status == _STATUS["WAIT"]:
@@ -346,3 +393,7 @@ class Broker:
             },
             index="date",
         )
+
+    @property
+    def history(self) -> Dict[str, Sequence[Position]]:
+        return self.__history

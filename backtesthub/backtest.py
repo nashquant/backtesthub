@@ -153,17 +153,20 @@ class Backtest:
         self.__pipeline.init()
         self.__strategy.init()
 
-        while self.dt <= self.__lastdate:
-            for data in self.datas.values(): 
-                data.next()
-            self.__broker.next()
+        while self.dt < self.__lastdate:
+            self.__advance()
             self.__broker.beg_of_period()
             self.__pipeline.next()
             self.__strategy.next()
             self.__broker.end_of_period()
-            self.__main.next()
 
         return self.__broker
+
+    def __advance(self):
+        self.__main.next()
+        self.__broker.next()
+        for data in self.datas.values(): 
+            data.next()
 
     def __len__(self) -> int:
         return len(self.__index)
@@ -171,6 +174,7 @@ class Backtest:
     @property
     def dt(self) -> date:
         return self.__main[0]
+        
 
     @property
     def index(self) -> Sequence[date]:

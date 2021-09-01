@@ -41,6 +41,7 @@ class Line(np.ndarray):
 
         obj = arr.view(cls)
         obj.__array = arr
+        obj.__len = len(arr)
         obj.__buffer = _DEFAULT_BUFFER
 
         return obj
@@ -53,9 +54,6 @@ class Line(np.ndarray):
         beg = _DEFAULT_BUFFER
         end = self.__buffer
         return repr(self.__array[beg : end + 1])
-
-    def __len__(self):
-        return len(self.__array)
 
     def next(self):
         self.__buffer += 1
