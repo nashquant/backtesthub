@@ -281,7 +281,7 @@ class Asset(Base):
 
     def config(
         self,
-        commission: Number = _DEFAULT_SCOMMISSION,
+        commission: Optional[Number] = None,
         slippage: Number = _DEFAULT_SLIPPAGE,
         currency: str = _DEFAULT_CURRENCY,
         multiplier: Optional[Number] = None,
@@ -320,9 +320,6 @@ class Asset(Base):
             if maturity is None:
                 msg = "Maturity is required for Future-Like assets"
                 ValueError(msg)
-
-    def adjust(self):
-        pass
 
     @property
     def asset(self) -> str:

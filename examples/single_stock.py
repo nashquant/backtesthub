@@ -10,16 +10,18 @@ sys.path.append(
     )
 )
 
-from backtesthub.indicators import Default, SMACross
+from backtesthub.indicators import *
 from backtesthub.pipelines import Single
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
+from backtesthub.utils.math import adjust_stocks
 from backtesthub.utils.config import (
     _DEFAULT_SDATE,
     _DEFAULT_EDATE,
     _DEFAULT_URL,
 )
+
 
 class System(Strategy):
 
@@ -67,6 +69,7 @@ engine = create_engine(
 base = "IMAB5+"
 asset = "IB5M11"
 ohlc = ["open", "high", "low", "close"]
+ohlcr = ["open", "high", "low", "close", "returns"]
 
 base_sql = (
     "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
@@ -81,7 +84,7 @@ carry_sql = (
 )
 
 price_sql = (
-    "SELECT ticker, date, open, high, low, close "
+    "SELECT ticker, date, open, high, low, close, returns/100 as returns "
     "FROM quant.StocksHistory s "
     f"WHERE s.ticker = '{asset}' AND "
     f"date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
@@ -105,14 +108,16 @@ backtest.add_base(
 )
 
 backtest.add_base(
-    ticker='carry',
+    ticker="carry",
     data=carry[ohlc],
 )
 
 
 backtest.add_asset(
     ticker=asset,
-    data=price[ohlc],
+    data=adjust_stocks(
+        price[ohlcr],
+    ),
 )
 
 res = backtest.run()
@@ -120,8 +125,8 @@ df, rec = res.df, res.rec
 
 pd.options.display.float_format = "{:,.2f}".format
 
-df['volatility'] = 100 * df.volatility
-df['drawdown'] = 100 * df.drawdown
+df["volatility"] = 100 * df.volatility
+df["drawdown"] = 100 * df.drawdown
 
 print("\n" + str(res))
 

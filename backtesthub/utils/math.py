@@ -54,10 +54,34 @@ def EWMAVolatility(
     return returns.ewm(alpha=alpha).std() * math.sqrt(freq)
 
 
+def adjust_stocks(data: pd.DataFrame) -> pd.DataFrame:
+    data = data.sort_index(ascending=False)
+    OHLC = ["open", "high", "low", "close"]
+    cumprod = (
+        (1 + data.returns)
+        .cumprod()
+        .shift(
+            periods=1,
+            fill_value=1,
+        )
+    )
+
+    aclose = data.close[0] / cumprod
+    data["multpl"] = aclose / data.close
+
+    for col in OHLC:
+        data[col] = data[col] * data.multpl
+
+    data.drop(columns="multpl", inplace=True)
+    data = data.sort_index(ascending=True)
+
+    return data[OHLC]
+
+
 def rate2price(
     data: Union[Asset, Hedge],
     maturity: date,
-    holidays:Sequence[date] = [],
+    holidays: Sequence[date] = [],
     contract_size: float = float("10e5"),
 ):
 
@@ -73,7 +97,7 @@ def rate2price(
 
     df = data.df
     schema = data.schema
-    calendar = BR(years = [y for y in range(1990,2050)])
+    calendar = BR(years=[y for y in range(1990, 2050)])
 
     pu = (1 + df.divide(100)).pow(1 / 252)
     pu["days"] = [t.date() for t in pu.index]
