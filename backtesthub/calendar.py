@@ -2,7 +2,7 @@
 
 from holidays import BR, US
 from datetime import date, datetime
-from typing import Optional, Sequence
+from typing import Sequence
 from pandas import bdate_range
 
 from .utils.config import _DEFAULT_SDATE, _DEFAULT_EDATE

@@ -13,6 +13,7 @@ from .position import Position
 
 from .utils.bases import Base, Asset, Hedge
 from .utils.config import (
+    _DEFAULT_CURRENCY,
     _DEFAULT_BUFFER,
     _DEFAULT_CRATE,
     _DEFAULT_CASH,
@@ -104,7 +105,7 @@ class Broker:
         if not ticker in self.__positions:
             return
         pos = self.__positions.get(ticker)
-        order = self.new_order(pos.data, -pos.size)
+        self.new_order(pos.data, -pos.size)
 
     def beg_of_period(self):
         """
@@ -122,6 +123,17 @@ class Broker:
         Therefore it's daily carry is given
         by: carry = (1+10%) ^(1/252) -1
 
+        Trades in foreign currencies are adjusted
+        by the FX's closing price of the day (even 
+        if at the BoP, theoretically, the price is 
+        still not available). This is because this 
+        sep between BoP and EoP is "virtual", i.e. 
+        it doesn't exist in practice. Actually, the 
+        total pnl is given by the differences
+        between close price and the previous close
+        or the execution price, both cases adjusted 
+        by the close price of the currency.
+
         """
 
         self.__opnl.clear(), self.__ipnl.clear()
@@ -134,9 +146,13 @@ class Broker:
         for pos in self.position_stack:
             data = pos.data
             ticker = data.ticker
-            mult = data.multiplier
+            factor = data.multiplier
+            curr = data.currency
+            if not curr == _DEFAULT_CURRENCY:
+                pair = f"{curr}{_DEFAULT_CURRENCY}"
+                factor *= self.__currs[pair].close[0] 
 
-            MTM = pos.size * (data.open[0] - data.close[-1]) * mult
+            MTM = pos.size * (data.open[0] - data.close[-1]) * factor
 
             self.__open[self.__buffer] += MTM
             self.__equity[self.__buffer] += MTM
@@ -147,7 +163,7 @@ class Broker:
             ## When cash is consumed, it cannot yield carry ##
             ## Rateslike assets are swap-like against carry ##
             if data.cashlike:
-                dollar_expo = pos.size * mult * data.close[-1]
+                dollar_expo = pos.size * factor * data.close[-1]
                 carry = -dollar_expo * self.last_carry
                 self.__cash[self.__buffer] += carry
                 self.__cpnl[ticker] += carry
@@ -191,7 +207,12 @@ class Broker:
         data = order.data
         size = order.size
         ticker = data.ticker
-        mult = data.multiplier
+        
+        factor = data.multiplier
+        curr = data.currency
+        if not curr == _DEFAULT_CURRENCY:
+            pair = f"{curr}{_DEFAULT_CURRENCY}"
+            factor *= self.__currs[pair].close[0] 
 
         total_comm = order.total_comm
         self.__tpnl[ticker] += total_comm
@@ -202,7 +223,7 @@ class Broker:
 
         self.__cash[self.__buffer] -= CASH
 
-        M2M = order.size * (data.open[0] - exec_price) * mult
+        M2M = order.size * (data.open[0] - exec_price) * factor
         self.__open[self.__buffer] += M2M
         self.__equity[self.__buffer] += M2M
         self.__tpnl[ticker] += M2M
@@ -262,10 +283,16 @@ class Broker:
 
         for pos in self.position_stack:
             data, ticker = pos.data, pos.ticker
-            size, mult = pos.size, data.multiplier
+            size, factor = pos.size, data.multiplier
+            
+            curr = data.currency
+            if not curr == _DEFAULT_CURRENCY:
+                pair = f"{curr}{_DEFAULT_CURRENCY}"
+                factor *= self.__currs[pair].close[0] 
+
             order = self.__orders.get(ticker)
             price, open = data.close[0], data.open[0]
-            MTM = size * (price - open) * mult
+            MTM = size * (price - open) * factor
             self.__equity[self.__buffer] += MTM
             self.__ipnl[ticker] += MTM
             if not data.stocklike:
@@ -276,7 +303,7 @@ class Broker:
             else:
                 target = size
 
-            texpo = target * mult * price
+            texpo = target * factor * price
             texpo = texpo / self.curr_equity
 
             self.__records.append(
@@ -287,7 +314,7 @@ class Broker:
                     "size": size,
                     "signal": pos.signal,
                     "opnl": self.__opnl[ticker],
-                    "inl": self.__ipnl[ticker],
+                    "ipnl": self.__ipnl[ticker],
                     "tpnl": self.__tpnl[ticker],
                     "cpnl": self.__cpnl[ticker],
                     "refvol": data.volatility[0],
@@ -305,7 +332,7 @@ class Broker:
 
     def __repr__(self):
         kls = self.__class__.__name__
-        return f"{kls} <Cash: {self.curr_cash:.2f}, Equity: {self.curr_equity:2f}>"
+        return f"{kls} <Cash: {self.curr_cash:.2f}, Equity: {self.curr_equity:.2f}>"
 
     def __len__(self):
         return self.__length
@@ -395,7 +422,7 @@ class Broker:
 
     @property
     def quotas(self) -> List[Number]:
-        return self.equity / self.__startcash
+        return 1000 * self.equity / self.__startcash
 
     @property
     def df(self) -> pd.DataFrame:

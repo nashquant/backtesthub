@@ -4,16 +4,11 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 
-
 sys.path.append(
     os.path.dirname(
         os.path.dirname(__file__),
     )
 )
-
-EX = "dist-packages/backtesthub"
-sys.path = [p for p in sys.path if EX not in p]
-
 
 from backtesthub.indicators import SMACross
 from backtesthub.pipelines import Rolling
@@ -127,4 +122,4 @@ for ticker, prop in meta.iterrows():
     )
 
 res = backtest.run()
-print(res.df)
+print(res)
