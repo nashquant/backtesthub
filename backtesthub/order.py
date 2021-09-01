@@ -104,7 +104,7 @@ class Order:
                 return 0
             comm = exec_price * comm
 
-        return comm * abs(self.__size)
+        return - comm * abs(self.__size)
 
     @property
     def exec_price(self) -> Number:

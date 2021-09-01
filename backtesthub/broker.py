@@ -86,7 +86,8 @@ class Broker:
             txt = (
                 f"Broker<Order Received for "
                 f"{ticker}, Size: {size:.2f}, "
-                f"Price: {data.close[0]:.2f}>"
+                f"Price: {data.close[0]:.2f}, "
+                f"Signal: {data.signal[0]:.2f}>"
             )
             print(f"{self.date.isoformat()}, {txt}")
 
@@ -219,9 +220,9 @@ class Broker:
         CASH = M2M = total_comm
 
         if order.data.stocklike:
-            CASH += size * exec_price
+            CASH -= (size * exec_price)
 
-        self.__cash[self.__buffer] -= CASH
+        self.__cash[self.__buffer] += CASH
 
         M2M = order.size * (data.open[0] - exec_price) * factor
         self.__open[self.__buffer] += M2M
@@ -241,7 +242,8 @@ class Broker:
             txt = (
                 f"Broker<Order Executed for "
                 f"{ticker}, Size: {size:.2f}, "
-                f"Price: {exec_price:.2f}>"
+                f"Price: {exec_price:.2f}, "
+                f"Fee: {total_comm:.2f}>"
             )
             print(f"{self.date.isoformat()}, {txt}")
 
