@@ -28,6 +28,7 @@ _DEFAULT_EDATE: date = eval(os.getenv("DEF_EDATE", "date.today()"))
 _DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "0.2"))
 _DEFAULT_VPARAM: float = float(os.getenv("DEF_VPARAM", "0.05"))
 _DEFAULT_LAG: int = int(os.getenv("DEF_LAG", "4"))
+_DEFAULT_ECHO: bool = bool(os.getenv("DEF_ECHO", "True"))
 
 
 _CURR = (

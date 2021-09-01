@@ -57,8 +57,8 @@ class Line(np.ndarray):
     def __len__(self):
         return len(self.__array)
 
-    def __next(self):
-        self.__buffer+=1
+    def next(self):
+        self.__buffer += 1
 
     @property
     def buffer(self) -> int:
@@ -78,19 +78,19 @@ class Data:
 
     """
     `Data Base Object`
-    
+
     A data array accessor. Even though the input is a `pd.DataFrame`,
-    it gets transformed into a series of Lines (`np.ndarray` subclass) 
+    it gets transformed into a series of Lines (`np.ndarray` subclass)
     due to performance purposes.
 
     * Inspired by both Backtesting.py and Backtrader Systems:
       - https://github.com/kernc/backtesting.py.git
       - https://github.com/mementum/backtrader
 
-    Data is stored in [lower-cased] columns whose index must be either 
+    Data is stored in [lower-cased] columns whose index must be either
     a date or datetime (it will be converted to date).
 
-    Note: The framework still doesn't accept timeframes different than 
+    Note: The framework still doesn't accept timeframes different than
     "daily"... In future updates we'll tackle this issue.
 
     """
@@ -153,9 +153,9 @@ class Data:
         return len(self.__df)
 
     def next(self):
-        self.__buffer+=1
-        for line in self.__lines.values():
-            line._Line__next()
+        self.__buffer += 1
+        for line in self.__lines:
+            self.__lines[line].next()
 
     def add_line(self, name: str, line: Line):
         if not isinstance(line, Line):
@@ -201,13 +201,13 @@ class Base(Data):
     """
     `Base Object`
 
-    Base extends `Data` to create an unique asset class 
+    Base extends `Data` to create an unique asset class
     that is intended to hold asset/price data that is not
-    supposed to be used for trading purposes, but rather 
-    assets that are used to generate signals, calculate 
+    supposed to be used for trading purposes, but rather
+    assets that are used to generate signals, calculate
     currency conversion, and stuff like that.
 
-    Therefore there's no need to define properties such as 
+    Therefore there's no need to define properties such as
     multiplier, commission scheme, etc.
 
     Note: The name base might be confusing... Please note
@@ -220,8 +220,11 @@ class Base(Data):
         data: pd.DataFrame,
         index: Sequence[date] = None,
     ):
-        super().__init__(data=data, index=index)
         self.__ticker = ticker
+        super().__init__(
+            data=data,
+            index=index,
+        )
 
     @property
     def ticker(self) -> str:
@@ -233,25 +236,25 @@ class Asset(Base):
     """
     `Asset Class`
 
-    Asset Extends `Base` including features such as ticker, 
-    currency, commission (value and type), and identifying 
-    booleans to indicate things such as whether the asset 
-    is a stock or a future, whether its OHLC data is given 
+    Asset Extends `Base` including features such as ticker,
+    currency, commission (value and type), and identifying
+    booleans to indicate things such as whether the asset
+    is a stock or a future, whether its OHLC data is given
     in [default] price or rates.
 
     Parameters
     -----------
 
-    `multiplier`: contract base price multiplier, whenever this 
+    `multiplier`: contract base price multiplier, whenever this
       is declared, the data-type is assumed to be futures-like.
 
     `commission`: broker's commission per trade, may change
       depending on the commission type.
 
-    `commtype` commission type, which is by default set to "PERC" 
+    `commtype` commission type, which is by default set to "PERC"
       to stock-like assets, while "ABS" for future-like ones.
 
-    `slippage` estimated mean slippage per trade. Slippage exists 
+    `slippage` estimated mean slippage per trade. Slippage exists
       to account for the effects of bid-ask spread.
 
     `currency` asset's quotation currency. Must be among the
@@ -274,8 +277,9 @@ class Asset(Base):
             ticker=ticker,
             index=index,
         )
-
-        self.config(**commkwargs)
+        self.config(
+            **commkwargs,
+        )
 
     def config(
         self,
@@ -285,7 +289,7 @@ class Asset(Base):
         multiplier: Optional[Number] = None,
         maturity: Optional[date] = None,
     ):
-        if slippage<0 or slippage>1:
+        if slippage < 0 or slippage > 1:
             msg = "Invalid value for slippage"
             raise ValueError(msg)
 
@@ -304,7 +308,7 @@ class Asset(Base):
 
             self.__stocklike = True
             self.__rateslike = False
-            self.__asset = self.__ticker
+            self.__asset = self.ticker
 
         else:
             self.__commission = commission or _DEFAULT_FCOMMISSION
@@ -312,7 +316,7 @@ class Asset(Base):
             self.__multiplier = multiplier
 
             self.__stocklike = False
-            self.__asset = derive_asset(self.__ticker)
+            self.__asset = derive_asset(self.ticker)
             self.__rateslike = self.__asset in _RATESLIKE
 
             if maturity is None:
@@ -368,15 +372,15 @@ class Hedge(Asset):
     """
     `Hedge Class`
 
-    Hedge Class is extended from `Asset` but implements its own 
+    Hedge Class is extended from `Asset` but implements its own
     hedging method and assigns a specific target for that hedge.
 
-    We use the convention that if no target is assigned (None), 
-    the target would be anything that is currently being held 
+    We use the convention that if no target is assigned (None),
+    the target would be anything that is currently being held
     at the `Pipeline.Universe`.
-    
-    They are treated separately to highlight the difference, 
-    making possible to rapidly identify whether a given data 
+
+    They are treated separately to highlight the difference,
+    making possible to rapidly identify whether a given data
     structure exists for the purpose of "alpha" or "hedge".
     """
 
@@ -396,7 +400,7 @@ class Hedge(Asset):
             index=index,
             **commkwargs,
         )
-        
+
         self.__target = target
         self.__hmethod = hmethod
 

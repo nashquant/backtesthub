@@ -5,8 +5,8 @@ from operator import itemgetter
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 from typing import Dict, Sequence, Union
-
-from .utils.bases import Asset, Hedge
+from .utils.bases import Line, Asset, Hedge
+from .broker import Broker
 
 
 class Pipeline(metaclass=ABCMeta):
@@ -28,9 +28,13 @@ class Pipeline(metaclass=ABCMeta):
 
     def __init__(
         self,
+        main: Line,
+        broker: Broker,
         assets: Dict[str, Asset] = OrderedDict(),
         hedges: Dict[str, Hedge] = OrderedDict(),
     ):
+        self.__main = main
+        self.__broker = broker 
         self.__assets = assets
         self.__hedges = hedges
         self.__universe = []
@@ -40,14 +44,14 @@ class Pipeline(metaclass=ABCMeta):
         """ """
 
     @abstractmethod
-    def run(self) -> Sequence[Union[Asset, Hedge]]:
+    def next(self) -> Sequence[Union[Asset, Hedge]]:
         """ """
 
-    def build_chain(self) -> Sequence[str]:
+    def build_chain(self):
 
         maturities: Dict[str, date] = {
             asset.ticker: asset.maturity
-            for asset in self.assets
+            for asset in self.assets.values()
             if asset.maturity is not None
         }
 
@@ -59,11 +63,19 @@ class Pipeline(metaclass=ABCMeta):
             )
         )
 
-        return tuple(chain.keys())
+        self.chain: Sequence[str] = list(chain.keys())
 
     @property
     def asset(self) -> Asset:
         return tuple(self.__assets.values())[0]
+    
+    @property
+    def main(self) -> Line:
+        return self.__main
+
+    @property
+    def broker(self) -> Broker:
+        return self.__broker
 
     @property
     def assets(self) -> Dict[str, Asset]:

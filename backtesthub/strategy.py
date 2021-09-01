@@ -44,18 +44,12 @@ class Strategy(metaclass=ABCMeta):
     def next():
         """ """
 
-    def order_log(self, data: Union[Asset, Hedge], size: Number):
-        if not size: return
-        txt = f"Order issued for {data.ticker}, Size: {size}"
-        self.log(f"{data.date.isoformat()}, {txt}")
-
     def I(
         self,
         data: Union[Base, Asset, Hedge],
         func: Callable = Default,
         *args: Number,
     ):
-
         """
         `Indicator Assignment`
 

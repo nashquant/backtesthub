@@ -30,7 +30,7 @@ def derive_asset(fticker: str) -> str:
     if m not in _MATURITIES:
         raise ValueError(errmsg)
     
-    if y.isdigit():
+    if not y.isdigit():
         raise ValueError(errmsg)
 
     return fticker[:-3]

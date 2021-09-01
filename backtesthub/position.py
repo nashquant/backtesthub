@@ -49,22 +49,12 @@ class Position:
     @property
     def expo(self) -> float:
         """
-        Exposition as % of equity
+        Exposition
         """
         mult = self.data.multiplier
         price = self.data.close[0]
 
         return self.__size * mult * price
-
-    @property
-    def last_expo(self) -> float:
-        """
-        Exposition as % of equity
-        """
-        mult = self.data.multiplier
-        price = self.data.close[-1]
-
-        return self.__size * mult * price 
 
     @property
     def stop(self) -> Optional[float]:

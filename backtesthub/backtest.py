@@ -12,18 +12,18 @@ from .pipeline import Pipeline
 from .strategy import Strategy
 from .calendar import Calendar
 
-from .utils.bases import Base, Asset, Hedge
+from .utils.bases import Line, Base, Asset, Hedge
 
 from .utils.config import (
     _DEFAULT_CARRY,
     _DEFAULT_PAIRS,
-    _DEFAULT_BUFFER,
+    _DEFAULT_ECHO,
 )
 
-class Engine:
+class Backtest:
 
     """
-    `Engine Class`
+    `Backtest Class`
 
     Instances of this class are responsible for orchestrating all
     other objects (Strategy, Broker, Position, ...) in order to 
@@ -56,15 +56,20 @@ class Engine:
             raise TypeError(msg)
 
         self.__index: Sequence[date] = calendar.index
+        self.__main: Line = Line(self.__index)
+        self.__lastdate: date = self.__index[-1]
         self.__bases: Dict[str, Base] = OrderedDict()
         self.__assets: Dict[str, Asset] = OrderedDict()
         self.__hedges: Dict[str, Hedge] = OrderedDict()
 
         self.__broker: Broker = Broker(
             index=self.__index,
+            echo=_DEFAULT_ECHO,
         )
 
         self.__pipeline: Pipeline = pipeline(
+            main = self.__main,
+            broker=self.__broker,
             assets=self.__assets,
             hedges=self.__hedges,
         )
@@ -115,12 +120,8 @@ class Engine:
             data=data,
             ticker=ticker,
             index=self.index,
+            **commkwargs
         )
-
-        if commkwargs:
-            asset.config(
-                **commkwargs,
-            )
 
         self.__assets.update(
             {ticker: asset},
@@ -138,12 +139,8 @@ class Engine:
             ticker=ticker,
             hmethod=hmethod,
             index=self.index,
+            **commkwargs
         )
-
-        if commkwargs:
-            hedge.config(
-                **commkwargs,
-            )
 
         self.__hedges.update(
             {ticker: hedge},
@@ -156,25 +153,28 @@ class Engine:
         self.__pipeline.init()
         self.__strategy.init()
 
-        for self.dt in self.loop:
+        while self.dt <= self.__lastdate:
             for data in self.datas.values(): 
                 data.next()
-            self.universe = self.__pipeline.run()
-            
+            self.__broker.next()
             self.__broker.beg_of_period()
+            self.__pipeline.next()
             self.__strategy.next()
             self.__broker.end_of_period()
+            self.__main.next()
+
+        return self.__broker
 
     def __len__(self) -> int:
         return len(self.__index)
 
     @property
-    def index(self) -> Sequence[date]:
-        return self.__index
+    def dt(self) -> date:
+        return self.__main[0]
 
     @property
-    def loop(self) -> Sequence[date]:
-        return self.__index[_DEFAULT_BUFFER+1:]
+    def index(self) -> Sequence[date]:
+        return self.__index
 
     @property
     def strategy(self) -> Strategy:

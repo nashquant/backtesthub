@@ -1,1 +1,1 @@
-from .pipelines import Default
+from .pipelines import *

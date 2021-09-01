@@ -1,8 +1,9 @@
 #! /usr/bin/env python3
 
+import numpy as np
+import pandas as pd
 from numbers import Number
 from datetime import date
-from warnings import warn
 from typing import Dict, List, Optional, Sequence, Union
 
 from .order import Order
@@ -24,6 +25,7 @@ class Broker:
         cash: Number = _DEFAULT_CASH,
     ):
         self.__index = index
+        self.__startcash = cash
         self.__length = len(index)
         self.__buffer = _DEFAULT_BUFFER
         self.__carry: float = _DEFAULT_CRATE
@@ -33,19 +35,19 @@ class Broker:
         self.__currs: Dict[str, Base] = {}
         self.__positions: Dict[str, Position] = {}
 
-        self.__cash = [cash] * self.__length
-        self.__open = [cash] * self.__length
-        self.__equity = [cash] * self.__length
+        self.__cash = np.ones(self.__length) * cash
+        self.__open = np.ones(self.__length) * cash
+        self.__equity = np.ones(self.__length) * cash
 
     def add_carry(self, carry: Base):
-        if isinstance(carry, Base):
+        if not isinstance(carry, Base):
             msg = "Wrong input type for carry"
             raise TypeError(msg)
 
         self.__carry = carry
 
     def add_curr(self, curr: Base):
-        if isinstance(curr, Base):
+        if not isinstance(curr, Base):
             msg = "Wrong input type for carry"
             raise TypeError(msg)
 
@@ -73,6 +75,17 @@ class Broker:
         order = Order(data, size, limit)
         self.__orders.update({data.ticker: order})
 
+    def close(self, ticker: str):
+        if not ticker in self.__positions:
+            return
+        pos = self.__positions.get(ticker)
+
+        order = Order(
+            data = pos.data, 
+            size = -pos.size, 
+        )
+        self.__orders.update({ticker: order})
+
     def beg_of_period(self):
         """
         `Beginning of period PNL Accounting`
@@ -90,8 +103,6 @@ class Broker:
         by: carry = (1+10%) ^(1/252) -1
 
         """
-
-        self.__next()
 
         self.__cash[self.__buffer] = self.last_cash
         self.__open[self.__buffer] = self.last_equity
@@ -111,16 +122,12 @@ class Broker:
             ## When cash is consumed, it cannot yield carry ##
             ## Rateslike assets are swap-like against carry ##
             if data.cashlike:
-                if self.last_carry is not None:
-                    dollar_expo = pos.size * mult * data.close[-1]
-                    self.__cash[self.__buffer] -= dollar_expo * self.last_carry
-                else:
-                    warn("Carry values were not inputed..")
+                dollar_expo = pos.size * mult * data.close[-1]
+                self.__cash[self.__buffer] -= dollar_expo * self.last_carry
 
         for order in self.order_stack:
             if order.status == _STATUS["WAIT"]:
                 self.__execute_order(order)
-            if order.status in (_STATUS["EXEC"], _STATUS["CANC"]):
                 self.__orders.pop(order.data.ticker)
 
     def __execute_order(self, order: Order):
@@ -162,19 +169,11 @@ class Broker:
         if order.data.stocklike:
             CASH += order.size * order.exec_price
 
-        if self.__cash[self.__buffer] < CASH:
-            msg = f"{order} requires too much cash!"
-            raise ValueError(msg)
-        else:
-            self.__cash[self.__buffer] -= CASH
+        self.__cash[self.__buffer] -= CASH
 
         M2M = order.size * (order.exec_price - data.open[0]) * mult
-        if self.__open[self.__buffer] < M2M:
-            msg = f"{order} makes equity below zero!"
-            raise ValueError(msg)
-        else:
-            self.__open[self.__buffer] -= M2M
-            self.__equity[self.__buffer] -= M2M
+        self.__open[self.__buffer] -= M2M
+        self.__equity[self.__buffer] -= M2M
 
         if not data.ticker in self.__positions:
             position = Position(data=data, size=order.size)
@@ -243,12 +242,12 @@ class Broker:
 
     def __repr__(self):
         kls = self.__class__.__name__
-        return f"{kls}(Cash: {self.curr_cash:.2f}, Equity: {self.curr_equity:2f})"
+        return f"{kls} <Cash: {self.curr_cash:.2f}, Equity: {self.curr_equity:2f}>"
 
     def __len__(self):
         return self.__length
 
-    def __next(self):
+    def next(self):
         self.__buffer += 1
 
     def get_position(self, ticker: str) -> Optional[Position]:
@@ -275,28 +274,28 @@ class Broker:
 
     @property
     def last_cash(self) -> Number:
-        return self.__cash[self.__buffer-1]
+        return self.__cash[self.__buffer - 1]
 
     @property
     def last_equity(self) -> Number:
-        return self.__equity[self.__buffer-1]
+        return self.__equity[self.__buffer - 1]
 
     @property
     def last_open(self) -> Number:
-        return self.__open[self.__buffer-1]
+        return self.__open[self.__buffer - 1]
 
     @property
     def carry(self) -> Optional[float]:
         if isinstance(self.__carry, Base):
             return self.__carry.close[0]
-        
+
         return self.__carry
 
     @property
     def last_carry(self) -> Optional[float]:
         if isinstance(self.__carry, Base):
             return self.__carry.close[-1]
-        
+
         return self.__carry
 
     @property
@@ -309,13 +308,41 @@ class Broker:
 
     @property
     def order_stack(self) -> List[Order]:
-        if not self.__orders:
-            return []
         return list(self.__orders.values())
 
     @property
     def position_stack(self) -> List[Position]:
-        if not self.__positions:
-            return []
         return list(self.__positions.values())
 
+    @property
+    def index(self) -> List[Number]:
+        return self.__index[_DEFAULT_BUFFER : self.__buffer + 1]
+
+    @property
+    def cash(self) -> List[Number]:
+        return self.__cash[_DEFAULT_BUFFER : self.__buffer + 1]
+
+    @property
+    def open(self) -> List[Number]:
+        return self.__open[_DEFAULT_BUFFER : self.__buffer + 1]
+
+    @property
+    def equity(self) -> List[Number]:
+        return self.__equity[_DEFAULT_BUFFER : self.__buffer + 1]
+
+    @property
+    def quotas(self) -> List[Number]:
+        return self.equity / self.__startcash
+
+    @property
+    def df(self) -> pd.DataFrame:
+        return pd.DataFrame.from_records(
+            data={
+                "date": self.index,
+                "cash": self.cash,
+                "open": self.open,
+                "equity": self.equity,
+                "quota": self.quotas,
+            },
+            index="date",
+        )
