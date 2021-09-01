@@ -8,8 +8,10 @@ from ..utils.bases import (
     Hedge,
 )
 
+
 def Default(
     data: Union[Base, Asset, Hedge],
+    *args,
 ) -> pd.Series:
 
     return np.ones(len(data))
@@ -19,6 +21,7 @@ def SMACross(
     data: Union[Base, Asset, Hedge],
     p1: int,
     p2: int,
+    *args,
 ) -> pd.Series:
     """
     Return simple moving average of `values`,

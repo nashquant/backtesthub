@@ -13,6 +13,7 @@ from .strategy import Strategy
 from .calendar import Calendar
 
 from .utils.bases import Line, Base, Asset, Hedge
+from .utils.math import fill_OHLC
 
 from .utils.config import (
     _DEFAULT_CARRY,
@@ -117,7 +118,7 @@ class Backtest:
         **commkwargs: Union[str, Number],
     ):
         asset = Asset(
-            data=data,
+            data=fill_OHLC(data),
             ticker=ticker,
             index=self.index,
             **commkwargs

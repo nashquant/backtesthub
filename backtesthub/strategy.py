@@ -8,7 +8,6 @@ from typing import Callable, Dict, Union, Optional, Sequence
 
 from .broker import Broker
 from .pipeline import Pipeline
-from .indicators import Default
 from .utils.math import EWMAVolatility
 from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import (
@@ -47,7 +46,7 @@ class Strategy(metaclass=ABCMeta):
     def I(
         self,
         data: Union[Base, Asset, Hedge],
-        func: Callable = Default,
+        func: Callable,
         *args: Number,
     ):
         """

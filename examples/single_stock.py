@@ -11,10 +11,11 @@ sys.path.append(
 )
 
 from backtesthub.indicators import Default, SMACross
-from backtesthub.pipelines import Rolling
+from backtesthub.pipelines import Single
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
+from backtesthub.utils.math import fill_OHLC
 from backtesthub.utils.config import (
     _DEFAULT_SDATE,
     _DEFAULT_EDATE,
@@ -30,7 +31,7 @@ class System(Strategy):
     def init(self):
         self.I(
             self.base,
-            SMACross,
+            Default,
             self.p1,
             self.p2,
         )
@@ -53,7 +54,7 @@ calendar = Calendar(
 
 backtest = Backtest(
     strategy=System,
-    pipeline=Rolling,
+    pipeline=Single,
     calendar=calendar,
 )
 
@@ -65,9 +66,9 @@ engine = create_engine(
 
 ##### LOYALL DATABASE OPERATIONS #####
 
-base = "SPX"
-obases = ["USDBRL"]
-commodity = "ES"
+base = "IMAB5+"
+obases= ["CARRY"]
+asset = "IB5M11"
 ohlc = ["open", "high", "low", "close"]
 
 base_sql = (
@@ -77,32 +78,22 @@ base_sql = (
 )
 
 obase_sql = (
-    "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
+    "SELECT date, open, high, low, close FROM quant.IndexesHistory "
     f"WHERE ticker IN ({str(obases)[1:-1]}) AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
-meta_sql = (
-    "SELECT f.ticker as ticker, c.currency as curr, c.multiplier as mult, "
-    "f.endDate as mat FROM quant.Commodities c "
-    "INNER JOIN quant.Futures f ON c.ticker = f.commodity "
-    f"WHERE c.ticker IN ('{commodity}') AND f.endDate > '{_DEFAULT_SDATE}' "
-    "ORDER BY mat"
-)
-
 price_sql = (
     "SELECT ticker, date, open, high, low, close "
-    "FROM quant.FuturesHistory f "
-    f"WHERE f.commodity = '{commodity}' AND "
+    "FROM quant.StocksHistory s "
+    f"WHERE s.ticker = '{asset}' AND "
     f"date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
-meta = pd.read_sql(meta_sql, engine)
 price = pd.read_sql(price_sql, engine)
 b_price = pd.read_sql(base_sql, engine)
 ob_price = pd.read_sql(obase_sql, engine)
 
-meta.set_index("ticker", inplace=True)
 price.set_index("date", inplace=True)
 b_price.set_index("date", inplace=True)
 ob_price.set_index("date", inplace=True)
@@ -115,28 +106,17 @@ backtest.add_base(
 )
 
 for obase in obases:
-    mask = ob_price.ticker == obase
-    data = ob_price[mask]
+
     backtest.add_base(
         ticker=obase,
-        data=data[ohlc],
+        data=ob_price[ohlc],
     )
 
-for ticker, prop in meta.iterrows():
-    mask = price.ticker == ticker
-    data = price[mask]
 
-    commkwargs = dict(
-        multiplier=prop.mult,
-        currency=prop.curr,
-        maturity=prop.mat,
-    )
-
-    backtest.add_asset(
-        ticker=ticker,
-        data=data[ohlc],
-        **commkwargs,
-    )
+backtest.add_asset(
+    ticker=asset,
+    data=price[ohlc],
+)
 
 res = backtest.run()
 df, rec = res.df, res.rec

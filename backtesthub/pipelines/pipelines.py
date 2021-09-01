@@ -8,7 +8,7 @@ from ..utils.config import (
 )
 
 
-class Default(Pipeline):
+class Single(Pipeline):
     def init(self):
         self.universe = tuple(self.assets.values())
 
