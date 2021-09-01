@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import math
 import numpy as np
 import pandas as pd
 from numbers import Number
@@ -282,6 +283,7 @@ class Broker:
                 {
                     "date": self.date.isoformat(),
                     "ticker": ticker,
+                    "asset": data.asset,
                     "size": size,
                     "signal": pos.signal,
                     "opnl": self.__opnl[ticker],
@@ -398,8 +400,7 @@ class Broker:
     @property
     def df(self) -> pd.DataFrame:
         dates = [dt.isoformat() for dt in self.index]
-
-        return pd.DataFrame.from_records(
+        df = pd.DataFrame.from_records(
             {
                 "date": dates,
                 "cash": self.cash,
@@ -408,6 +409,15 @@ class Broker:
                 "quota": self.quotas,
             }
         )
+
+        df['returns'] = df.equity.pct_change()
+        df['returnsln'] = np.log(1 + df.returns)
+        df['m12'] = np.exp(df.returnsln.rolling(252).sum()) -1 
+        df['volatility'] = math.sqrt(252) * df.returns.rolling(252).std()
+        df['sharpe'] = df['m12'] / df['volatility']
+        df['drawdown'] = df['quota'] / df['quota'].cummax() -1 
+
+        return df
 
     @property
     def rec(self) -> pd.DataFrame:
