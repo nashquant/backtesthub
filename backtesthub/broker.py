@@ -124,14 +124,14 @@ class Broker:
         by: carry = (1+10%) ^(1/252) -1
 
         Trades in foreign currencies are adjusted
-        by the FX's closing price of the day (even 
-        if at the BoP, theoretically, the price is 
-        still not available). This is because this 
-        sep between BoP and EoP is "virtual", i.e. 
-        it doesn't exist in practice. Actually, the 
+        by the FX's closing price of the day (even
+        if at the BoP, theoretically, the price is
+        still not available). This is because this
+        sep between BoP and EoP is "virtual", i.e.
+        it doesn't exist in practice. Actually, the
         total pnl is given by the differences
         between close price and the previous close
-        or the execution price, both cases adjusted 
+        or the execution price, both cases adjusted
         by the close price of the currency.
 
         """
@@ -150,7 +150,7 @@ class Broker:
             curr = data.currency
             if not curr == _DEFAULT_CURRENCY:
                 pair = f"{curr}{_DEFAULT_CURRENCY}"
-                factor *= self.__currs[pair].close[0] 
+                factor *= self.__currs[pair].close[0]
 
             MTM = pos.size * (data.open[0] - data.close[-1]) * factor
 
@@ -207,12 +207,12 @@ class Broker:
         data = order.data
         size = order.size
         ticker = data.ticker
-        
+
         factor = data.multiplier
         curr = data.currency
         if not curr == _DEFAULT_CURRENCY:
             pair = f"{curr}{_DEFAULT_CURRENCY}"
-            factor *= self.__currs[pair].close[0] 
+            factor *= self.__currs[pair].close[0]
 
         total_comm = order.total_comm
         self.__tpnl[ticker] += total_comm
@@ -284,11 +284,11 @@ class Broker:
         for pos in self.position_stack:
             data, ticker = pos.data, pos.ticker
             size, factor = pos.size, data.multiplier
-            
+
             curr = data.currency
             if not curr == _DEFAULT_CURRENCY:
                 pair = f"{curr}{_DEFAULT_CURRENCY}"
-                factor *= self.__currs[pair].close[0] 
+                factor *= self.__currs[pair].close[0]
 
             order = self.__orders.get(ticker)
             price, open = data.close[0], data.open[0]
@@ -332,7 +332,12 @@ class Broker:
 
     def __repr__(self):
         kls = self.__class__.__name__
-        return f"{kls} <Cash: {self.curr_cash:.2f}, Equity: {self.curr_equity:.2f}>"
+        return (
+            f"{self.date.isoformat()}, {kls}<"
+            f"Return: {self.cum_return:.2f}%, "
+            f"{str(self.position_stack)[1:-1]}, "
+            f"{str(self.order_stack)[1:-1]}> "
+        )
 
     def __len__(self):
         return self.__length
@@ -397,6 +402,10 @@ class Broker:
         return self.__orders
 
     @property
+    def currs(self) -> Dict[str, Base]:
+        return self.__currs
+
+    @property
     def order_stack(self) -> List[Order]:
         return list(self.__orders.values())
 
@@ -425,6 +434,10 @@ class Broker:
         return 1000 * self.equity / self.__startcash
 
     @property
+    def cum_return(self) -> Number:
+        return 100 * (self.curr_equity/self.__startcash - 1)
+
+    @property
     def df(self) -> pd.DataFrame:
         dates = [dt.isoformat() for dt in self.index]
         df = pd.DataFrame.from_records(
@@ -437,12 +450,12 @@ class Broker:
             }
         )
 
-        df['returns'] = df.equity.pct_change()
-        df['returnsln'] = np.log(1 + df.returns)
-        df['m12'] = np.exp(df.returnsln.rolling(252).sum()) -1 
-        df['volatility'] = math.sqrt(252) * df.returns.rolling(252).std()
-        df['sharpe'] = df['m12'] / df['volatility']
-        df['drawdown'] = df['quota'] / df['quota'].cummax() -1 
+        df["returns"] = df.equity.pct_change()
+        df["returnsln"] = np.log(1 + df.returns)
+        df["m12"] = np.exp(df.returnsln.rolling(252).sum()) - 1
+        df["volatility"] = math.sqrt(252) * df.returns.rolling(252).std()
+        df["sharpe"] = df["m12"] / df["volatility"]
+        df["drawdown"] = df["quota"] / df["quota"].cummax() - 1
 
         return df
 

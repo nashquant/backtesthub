@@ -25,7 +25,7 @@ from backtesthub.utils.config import (
 class System(Strategy):
 
     p1 = 10
-    p2 = 100
+    p2 = 200
 
     def init(self):
         self.I(
@@ -65,13 +65,20 @@ engine = create_engine(
 
 ##### LOYALL DATABASE OPERATIONS #####
 
-base = "USDBRL"
-commodity = "DOL"
+base = "SPX"
+obases = ["USDBRL"]
+commodity = "ES"
 ohlc = ["open", "high", "low", "close"]
 
 base_sql = (
     "SELECT date, open, high, low, close FROM quant.IndexesHistory "
     f"WHERE ticker = '{base}' AND date between "
+    f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
+)
+
+obase_sql = (
+    "SELECT date, open, high, low, close FROM quant.IndexesHistory "
+    f"WHERE ticker IN ({str(obases)[1:-1]}) AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
@@ -93,10 +100,12 @@ price_sql = (
 meta = pd.read_sql(meta_sql, engine)
 price = pd.read_sql(price_sql, engine)
 b_price = pd.read_sql(base_sql, engine)
+ob_price = pd.read_sql(obase_sql, engine)
 
 meta.set_index("ticker", inplace=True)
 price.set_index("date", inplace=True)
 b_price.set_index("date", inplace=True)
+ob_price.set_index("date", inplace=True)
 
 ########################################
 
@@ -104,6 +113,12 @@ backtest.add_base(
     ticker=base,
     data=b_price[ohlc],
 )
+
+for obase in obases:
+    backtest.add_base(
+        ticker=obase,
+        data=ob_price[ohlc],
+    )
 
 for ticker, prop in meta.iterrows():
     mask = price.ticker == ticker

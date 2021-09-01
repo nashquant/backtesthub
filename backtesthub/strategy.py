@@ -14,6 +14,7 @@ from .utils.bases import Line, Base, Asset, Hedge
 from .utils.config import (
     _DEFAULT_VOLATILITY,
     _DEFAULT_MIN_SIZE,
+    _DEFAULT_CURRENCY,
     _DEFAULT_SIZING,
     _DEFAULT_THRESH,
     _METHOD,
@@ -203,9 +204,14 @@ class Strategy(metaclass=ABCMeta):
         equity = self.__broker.last_equity
         method = _METHOD[method]
 
-        mult = data.multiplier
+        factor = data.multiplier
+        curr = data.currency
+        if not curr == _DEFAULT_CURRENCY:
+            pair = f"{curr}{_DEFAULT_CURRENCY}"
+            factor *= self.__broker.currs[pair].close[0] 
+
         signal = data.signal[0]
-        price = data.close[0] * mult
+        price = data.close[0] * factor
 
         if method == _METHOD["EWMA"]:
             vol_target = _DEFAULT_VOLATILITY
