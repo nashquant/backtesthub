@@ -31,7 +31,7 @@ class System(Strategy):
     def init(self):
         self.I(
             self.base,
-            Default,
+            SMACross,
             self.p1,
             self.p2,
         )
