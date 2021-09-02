@@ -1,4 +1,5 @@
 from .indicators import (
-    Default,
+    Buy_n_Hold,
+    Sell_n_Hold,
     SMACross,
 )

@@ -21,11 +21,12 @@ from backtesthub.utils.config import (
     _DEFAULT_URL,
 )
 
+pd.options.mode.chained_assignment = None
 
 class System(Strategy):
 
     p1 = 10
-    p2 = 200
+    p2 = 60
 
     def init(self):
         self.I(
@@ -65,9 +66,9 @@ engine = create_engine(
 
 ##### LOYALL DATABASE OPERATIONS #####
 
-base = "IBOV"
+base = "T10"
 obases = ["USDBRL"]
-commodity = "IND"
+commodity = "T10"
 ohlc = ["open", "high", "low", "close"]
 
 base_sql = (
@@ -143,8 +144,8 @@ df, rec = res.df, res.rec
 
 pd.options.display.float_format = "{:,.2f}".format
 
-df['volatility'] = 100 * df.volatility
-df['drawdown'] = 100 * df.drawdown
+df['volatility'] = df.volatility * 100
+df['drawdown'] = df.drawdown * 100
 
 print("\n" + str(res))
 

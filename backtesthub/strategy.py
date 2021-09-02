@@ -2,6 +2,7 @@
 
 import math
 import numpy as np
+from warnings import warn
 from numbers import Number
 from abc import ABCMeta, abstractmethod
 from typing import Callable, Dict, Union, Optional, Sequence
@@ -212,6 +213,10 @@ class Strategy(metaclass=ABCMeta):
 
         signal = data.signal[0]
         price = data.close[0] * factor
+
+        if np.isnan(price):
+            print(f"Data Warn!, {data} is incomplete !!")
+            return
 
         if method == _METHOD["EWMA"]:
             vol_target = _DEFAULT_VOLATILITY

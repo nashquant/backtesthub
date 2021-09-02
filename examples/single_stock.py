@@ -22,6 +22,7 @@ from backtesthub.utils.config import (
     _DEFAULT_URL,
 )
 
+pd.options.mode.chained_assignment = None
 
 class System(Strategy):
 
@@ -31,7 +32,7 @@ class System(Strategy):
     def init(self):
         self.I(
             self.base,
-            Default,
+            Buy_n_Hold,
             self.p1,
             self.p2,
         )
@@ -125,8 +126,8 @@ df, rec = res.df, res.rec
 
 pd.options.display.float_format = "{:,.2f}".format
 
-df["volatility"] = 100 * df.volatility
-df["drawdown"] = 100 * df.drawdown
+df['volatility'] = df.volatility * 100
+df['drawdown'] = df.drawdown * 100
 
 print("\n" + str(res))
 

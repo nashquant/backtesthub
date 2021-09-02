@@ -166,6 +166,8 @@ class Broker:
             if data.cashlike:
                 dollar_expo = pos.size * factor * data.close[-1]
                 carry = -dollar_expo * self.last_carry
+                self.__open[self.__buffer] += carry
+                self.__equity[self.__buffer] += carry
                 self.__cash[self.__buffer] += carry
                 self.__cpnl[ticker] += carry
 
