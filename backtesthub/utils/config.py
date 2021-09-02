@@ -1,12 +1,11 @@
 #! /usr/bin/env python3
 
-import sys, os
+import os
 import itertools
-import dotenv
-
 from datetime import date
+from dotenv import load_dotenv
 
-dotenv.load_dotenv()
+load_dotenv()
 
 _DEFAULT_MIN_SIZE: int = int(os.getenv("DEF_MIN_SIZE", "1"))
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
@@ -26,23 +25,25 @@ _DEFAULT_VPARAM: float = float(os.getenv("DEF_VPARAM", "0.05"))
 _DEFAULT_LAG: int = int(os.getenv("DEF_LAG", "4"))
 _DEFAULT_ECHO: bool = bool(os.getenv("DEF_ECHO", "True"))
 _DEFAULT_URL = {
-    "drivername": str(os.getenv("_DRIVER", "")),
-    "username": str(os.getenv("_USER", "")),
-    "password": str(os.getenv("_PASSWORD", "")),
-    "host": str(os.getenv("_HOST", "")),
-    "database": str(os.getenv("_DATABASE", "")),
+    "drivername": str(os.getenv("DB_DRIVER", "")),
+    "username": str(os.getenv("DB_USER", "")),
+    "password": str(os.getenv("DB_PASSWORD", "")),
+    "host": str(os.getenv("DB_HOST", "")),
+    "database": str(os.getenv("DB_DATABASE", "")),
 }
 
-_MIN_VOL = eval(
-    os.getenv(
-        "_MIN_VOL",
-        str(
-            {
-                "ES": 0.12,
-                "IND": 0.15,
-                "DOL": 0.10,
-            }
-        ),
+_MIN_VOL = {
+    "ES": 0.12,
+    "IND": 0.15,
+    "DOL": 0.10,
+}
+
+_MIN_VOL.update(
+    eval(
+        os.getenv(
+            "_MIN_VOL",
+            str({}),
+        )
     )
 )
 

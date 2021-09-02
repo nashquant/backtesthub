@@ -24,17 +24,28 @@ from backtesthub.utils.config import (
 
 pd.options.mode.chained_assignment = None
 
-class System(Strategy):
+################## CONFIG ##################
 
-    p1 = 10
-    p2 = 200
+base = "IMAB5+"
+obases = ["CARRY"]
+factor = "RISKPAR"
+market = "RATESBR"
+asset = "IB5M11"
+ohlc = ["open", "high", "low", "close"]
+ohlcr = ["open", "high", "low", "close", "returns"]
+
+############################################
+
+
+class Riskpar(Strategy):
+
+    params = {}
 
     def init(self):
         self.I(
             self.base,
             Buy_n_Hold,
-            self.p1,
-            self.p2,
+            **self.params,
         )
 
         self.broadcast(
@@ -54,9 +65,12 @@ calendar = Calendar(
 )
 
 backtest = Backtest(
-    strategy=System,
+    strategy=Riskpar,
     pipeline=Single,
     calendar=calendar,
+    factor=factor,
+    market=market,
+    asset=asset,
 )
 
 engine = create_engine(
@@ -65,12 +79,7 @@ engine = create_engine(
     echo=False,
 )
 
-##### LOYALL DATABASE OPERATIONS #####
-
-base = "IMAB5+"
-asset = "IB5M11"
-ohlc = ["open", "high", "low", "close"]
-ohlcr = ["open", "high", "low", "close", "returns"]
+##################  DATABASE OPERATIONS ##################
 
 base_sql = (
     "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
@@ -101,7 +110,7 @@ carry.set_index("date", inplace=True)
 
 carry = carry.pct_change()
 
-########################################
+##########################################################
 
 backtest.add_base(
     ticker=base,
@@ -122,12 +131,13 @@ backtest.add_asset(
 )
 
 res = backtest.run()
-df, rec = res.df, res.rec
+strat_meta = res["meta"]
+df, rec = res["quotas"], res["records"]
 
 pd.options.display.float_format = "{:,.2f}".format
 
-df['volatility'] = df.volatility * 100
-df['drawdown'] = df.drawdown * 100
+df["volatility"] = df.volatility * 100
+df["drawdown"] = df.drawdown * 100
 
 print("\n" + str(res))
 

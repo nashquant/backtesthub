@@ -2,7 +2,7 @@
 
 import math
 import numpy as np
-from warnings import warn
+from collections import OrderedDict
 from numbers import Number
 from abc import ABCMeta, abstractmethod
 from typing import Callable, Dict, Union, Optional, Sequence
@@ -37,6 +37,7 @@ class Strategy(metaclass=ABCMeta):
         self.__bases = bases
         self.__assets = assets
         self.__hedges = hedges
+        self.__params = OrderedDict()
 
     @abstractmethod
     def init():
@@ -49,7 +50,7 @@ class Strategy(metaclass=ABCMeta):
         self,
         data: Union[Base, Asset, Hedge],
         func: Callable,
-        *args: Number,
+        **kwargs: Number,
     ):
         """
         `Indicator Assignment`
@@ -68,9 +69,12 @@ class Strategy(metaclass=ABCMeta):
           be converted to indicators and signal lines 
         """
         try:
-            ind = func(data, *args)
+            ind = func(data, *kwargs.values())
         except Exception as e:
             raise Exception(e)
+
+        if kwargs:
+            self.__params.update(kwargs)
 
         if not len(data) == len(ind):
             msg = f"Line length not compatible"
@@ -96,7 +100,7 @@ class Strategy(metaclass=ABCMeta):
         self,
         data: Union[Base, Asset, Hedge],
         func: Callable = EWMAVolatility,
-        *args: Union[str, int, float],
+        **kwargs: Union[str, int, float],
     ):
         """
         `Volatility Assignment`
@@ -105,7 +109,7 @@ class Strategy(metaclass=ABCMeta):
         but it is applied to volatility calcs.  
         """
         try:
-            vol = func(data, *args)
+            vol = func(data, *kwargs.values())
         except Exception as e:
             raise Exception(e)
 
@@ -264,6 +268,9 @@ class Strategy(metaclass=ABCMeta):
         )
 
         return delta
+
+    def get_params(self) -> Dict[str, Number]:
+        return self.__params
 
     def get_universe(self) -> Sequence[Union[Asset, Hedge]]:
         return self.__pipeline.universe

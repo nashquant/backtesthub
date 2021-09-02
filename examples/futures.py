@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+
 import os, sys
 import pandas as pd
 from sqlalchemy import create_engine
@@ -10,7 +11,7 @@ sys.path.append(
     )
 )
 
-from backtesthub.indicators import Default, SMACross
+from backtesthub.indicators import *
 from backtesthub.pipelines import Rolling
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
@@ -23,17 +24,29 @@ from backtesthub.utils.config import (
 
 pd.options.mode.chained_assignment = None
 
-class System(Strategy):
+################## CONFIG ##################
 
-    p1 = 10
-    p2 = 60
+base = "USDBRL"
+obases = ["CARRY"]
+factor = "TREND"
+market = "FXBR"
+asset = "DOL"
+ohlc = ["open", "high", "low", "close"]
+
+############################################
+
+class Trend_SMACross(Strategy):
+
+    params = {
+        "p1": 10,
+        "p2": 200,
+    }
 
     def init(self):
         self.I(
             self.base,
             SMACross,
-            self.p1,
-            self.p2,
+            **self.params,
         )
 
         self.broadcast(
@@ -53,9 +66,12 @@ calendar = Calendar(
 )
 
 backtest = Backtest(
-    strategy=System,
+    strategy=Trend_SMACross,
     pipeline=Rolling,
     calendar=calendar,
+    factor=factor,
+    market=market,
+    asset=asset,
 )
 
 engine = create_engine(
@@ -64,12 +80,7 @@ engine = create_engine(
     echo=False,
 )
 
-##### LOYALL DATABASE OPERATIONS #####
-
-base = "T10"
-obases = ["USDBRL"]
-commodity = "T10"
-ohlc = ["open", "high", "low", "close"]
+##################  DATABASE OPERATIONS ##################
 
 base_sql = (
     "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
@@ -87,14 +98,14 @@ meta_sql = (
     "SELECT f.ticker as ticker, c.currency as curr, c.multiplier as mult, "
     "f.endDate as mat FROM quant.Commodities c "
     "INNER JOIN quant.Futures f ON c.ticker = f.commodity "
-    f"WHERE c.ticker IN ('{commodity}') AND f.endDate > '{_DEFAULT_SDATE}' "
+    f"WHERE c.ticker IN ('{asset}') AND f.endDate > '{_DEFAULT_SDATE}' "
     "ORDER BY mat"
 )
 
 price_sql = (
     "SELECT ticker, date, open, high, low, close "
     "FROM quant.FuturesHistory f "
-    f"WHERE f.commodity = '{commodity}' AND "
+    f"WHERE f.commodity = '{asset}' AND "
     f"date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
@@ -108,7 +119,7 @@ price.set_index("date", inplace=True)
 b_price.set_index("date", inplace=True)
 ob_price.set_index("date", inplace=True)
 
-########################################
+##########################################################
 
 backtest.add_base(
     ticker=base,
@@ -140,12 +151,13 @@ for ticker, prop in meta.iterrows():
     )
 
 res = backtest.run()
-df, rec = res.df, res.rec
+strat_meta = res["meta"]
+df, rec = res["quotas"], res["records"]
 
 pd.options.display.float_format = "{:,.2f}".format
 
-df['volatility'] = df.volatility * 100
-df['drawdown'] = df.drawdown * 100
+df["volatility"] = df.volatility * 100
+df["drawdown"] = df.drawdown * 100
 
 print("\n" + str(res))
 
