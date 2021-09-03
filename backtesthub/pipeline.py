@@ -5,7 +5,7 @@ from operator import itemgetter
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 from typing import Dict, Sequence, Union
-from .utils.bases import Line, Asset, Hedge
+from .utils.bases import Line, Asset
 from .broker import Broker
 
 
@@ -31,12 +31,10 @@ class Pipeline(metaclass=ABCMeta):
         main: Line,
         broker: Broker,
         assets: Dict[str, Asset] = OrderedDict(),
-        hedges: Dict[str, Hedge] = OrderedDict(),
     ):
         self.__main = main
         self.__broker = broker 
         self.__assets = assets
-        self.__hedges = hedges
         self.__universe = []
 
     @abstractmethod
@@ -44,7 +42,7 @@ class Pipeline(metaclass=ABCMeta):
         """ """
 
     @abstractmethod
-    def next(self) -> Sequence[Union[Asset, Hedge]]:
+    def next(self) -> Sequence[Asset]:
         """ """
 
     def build_chain(self):
@@ -80,7 +78,3 @@ class Pipeline(metaclass=ABCMeta):
     @property
     def assets(self) -> Dict[str, Asset]:
         return self.__assets
-
-    @property
-    def hedges(self) -> Dict[str, Hedge]:
-        return self.__hedges

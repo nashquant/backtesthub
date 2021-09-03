@@ -37,8 +37,7 @@ ohlcr = ["open", "high", "low", "close", "returns"]
 ############################################
 
 
-class Riskpar(Strategy):
-
+class Riskpar_BuyNHold(Strategy):
     params = {}
 
     def init(self):
@@ -65,7 +64,7 @@ calendar = Calendar(
 )
 
 backtest = Backtest(
-    strategy=Riskpar,
+    strategy=Riskpar_BuyNHold,
     pipeline=Single,
     calendar=calendar,
     factor=factor,

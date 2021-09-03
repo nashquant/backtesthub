@@ -5,12 +5,11 @@ from typing import Union
 from ..utils.bases import (
     Base,
     Asset,
-    Hedge,
 )
 
 
 def Buy_n_Hold(
-    data: Union[Base, Asset, Hedge],
+    data: Union[Base, Asset],
     *args,
 ) -> pd.Series:
     """
@@ -19,7 +18,7 @@ def Buy_n_Hold(
     return np.ones(len(data))
 
 def Sell_n_Hold(
-    data: Union[Base, Asset, Hedge],
+    data: Union[Base, Asset],
     *args,
 ) -> pd.Series:
     """
@@ -29,7 +28,7 @@ def Sell_n_Hold(
 
 
 def SMACross(
-    data: Union[Base, Asset, Hedge],
+    data: Union[Base, Asset],
     p1: int,
     p2: int,
     *args,
@@ -45,7 +44,7 @@ def SMACross(
 
 
 def EMACross(
-    data: Union[Base, Asset, Hedge],
+    data: Union[Base, Asset],
     p1: int,
     p2: int,
     *args,

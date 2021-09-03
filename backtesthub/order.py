@@ -2,16 +2,16 @@
 
 from datetime import date
 from numbers import Number
-
 from typing import Optional, Union
-from .utils.bases import Asset, Hedge
+
+from .utils.bases import Asset
 from .utils.config import _STATUS, _COMMTYPE
 
 
 class Order:
     def __init__(
         self,
-        data: Union[Asset, Hedge],
+        data: Asset,
         size: Number,
         limit: Optional[Number] = None,
     ):
@@ -23,8 +23,8 @@ class Order:
         self.__isbuy: bool = self.__size > 0
         self.__issell: bool = self.__size < 0
 
-        if not isinstance(data, (Asset, Hedge)):
-            msg = "Order `data` must be either an Asset or a Hedge instance!"
+        if not isinstance(data, Asset):
+            msg = "Order `data` must be an Asset!"
             raise TypeError(msg)
 
         if not self.__isbuy and not self.__issell:
@@ -79,7 +79,7 @@ class Order:
         return self.__ticker
     
     @property
-    def data(self) -> Union[Asset, Hedge]:
+    def data(self) -> Asset:
         return self.__data
 
     @property

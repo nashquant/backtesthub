@@ -10,7 +10,7 @@ from typing import Callable, Dict, Union, Optional, Sequence
 from .broker import Broker
 from .pipeline import Pipeline
 from .utils.math import EWMAVolatility
-from .utils.bases import Line, Base, Asset, Hedge
+from .utils.bases import Line, Base, Asset
 from .utils.config import (
     _DEFAULT_VOLATILITY,
     _DEFAULT_MIN_SIZE,
@@ -21,7 +21,6 @@ from .utils.config import (
     _METHOD,
 )
 
-
 class Strategy(metaclass=ABCMeta):
     def __init__(
         self,
@@ -29,14 +28,12 @@ class Strategy(metaclass=ABCMeta):
         pipeline: Pipeline,
         bases: Dict[str, Base],
         assets: Dict[str, Asset],
-        hedges: Dict[str, Hedge],
     ):
 
         self.__broker = broker
         self.__pipeline = pipeline
         self.__bases = bases
         self.__assets = assets
-        self.__hedges = hedges
         self.__params = OrderedDict()
 
     @abstractmethod
@@ -48,7 +45,7 @@ class Strategy(metaclass=ABCMeta):
 
     def I(
         self,
-        data: Union[Base, Asset, Hedge],
+        data: Union[Base, Asset],
         func: Callable,
         **kwargs: Number,
     ):
@@ -56,7 +53,7 @@ class Strategy(metaclass=ABCMeta):
         `Indicator Assignment`
 
         - Takes a custom function, a data structre
-          that can either be Base, Asset or Hedge,
+          that can either be a Base or an Asset
           and some parameters to be passed to func.
         
         - The function is supposed to receive the
@@ -98,7 +95,7 @@ class Strategy(metaclass=ABCMeta):
 
     def V(
         self,
-        data: Union[Base, Asset, Hedge],
+        data: Union[Base, Asset],
         func: Callable = EWMAVolatility,
         **kwargs: Union[str, int, float],
     ):
@@ -157,7 +154,7 @@ class Strategy(metaclass=ABCMeta):
 
     def order_target(
         self,
-        data: Union[Asset, Hedge],
+        data: Optional[Asset] = None,
         target: Optional[float] = None,
         method: str = _DEFAULT_SIZING,
         thresh: float = _DEFAULT_THRESH,
@@ -197,6 +194,10 @@ class Strategy(metaclass=ABCMeta):
         4) `Stop_price`: ...
         
         """
+
+        if data is None:
+            data = self.asset
+
         if method not in _METHOD:
             msg="Method not implemented"
             raise ValueError(msg)
@@ -241,7 +242,7 @@ class Strategy(metaclass=ABCMeta):
 
         else:
             msg = "Method still not Implemented"
-            raise NotImplementedError(msg)
+            raise ValueError(msg)
         
         if size > 0:
             size = min_size*math.floor(size/min_size)
@@ -272,13 +273,12 @@ class Strategy(metaclass=ABCMeta):
     def get_params(self) -> Dict[str, Number]:
         return self.__params
 
-    def get_universe(self) -> Sequence[Union[Asset, Hedge]]:
+    def get_universe(self) -> Sequence[Asset]:
         return self.__pipeline.universe
 
-    def get_current(self, data: Union[Asset, Hedge]) -> Number:
-        if type(data) not in (Asset, Hedge):
-            msg = "Data must be of type Asset/Hedge"
-            raise TypeError(msg)
+    def get_current(self, data: Asset) -> Number:
+        if isinstance(data, str):
+            data = self.__assets[data]
 
         position = self.__broker.get_position(data.ticker)
         size = position.size if position is not None else 0
@@ -300,10 +300,6 @@ class Strategy(metaclass=ABCMeta):
     @property
     def assets(self) -> Dict[str, Asset]:
         return self.__assets
-
-    @property
-    def hedges(self) -> Dict[str, Hedge]:
-        return self.__hedges
 
     @property
     def pipeline(self) -> Pipeline:

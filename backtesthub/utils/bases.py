@@ -2,9 +2,8 @@
 
 import numpy as np
 import pandas as pd
-
-from numbers import Number
 from datetime import date
+from numbers import Number
 from typing import Optional, Sequence
 
 from .checks import derive_asset
@@ -14,6 +13,8 @@ from .config import (
     _DEFAULT_SLIPPAGE,
     _DEFAULT_SCOMMISSION,
     _DEFAULT_FCOMMISSION,
+    _DEFAULT_MATURITY,
+    _DEFAULT_HEDGE,
     _HMETHOD,
     _COMMTYPE,
     _RATESLIKE,
@@ -70,7 +71,6 @@ class Line(np.ndarray):
     def series(self) -> pd.Series:
         idx = np.arange(len(self))
         return pd.Series(self.array, idx)
-
 
 class Data:
 
@@ -282,10 +282,10 @@ class Asset(Base):
     def config(
         self,
         commission: Optional[Number] = None,
+        multiplier: Optional[Number] = None,
+        maturity: date = _DEFAULT_MATURITY,
         slippage: Number = _DEFAULT_SLIPPAGE,
         currency: str = _DEFAULT_CURRENCY,
-        multiplier: Optional[Number] = None,
-        maturity: Optional[date] = None,
     ):
         if slippage < 0 or slippage > 1:
             msg = "Invalid value for slippage"
@@ -317,7 +317,7 @@ class Asset(Base):
             self.__asset = derive_asset(self.ticker)
             self.__rateslike = self.__asset in _RATESLIKE
 
-            if maturity is None:
+            if maturity == _DEFAULT_MATURITY:
                 msg = "Maturity is required for Future-Like assets"
                 ValueError(msg)
 
@@ -360,53 +360,3 @@ class Asset(Base):
     @property
     def cashlike(self) -> bool:
         return self.__stocklike or self.__rateslike
-
-
-class Hedge(Asset):
-
-    """
-    `Hedge Class`
-
-    Hedge Class is extended from `Asset` but implements its own
-    hedging method and assigns a specific target for that hedge.
-
-    We use the convention that if no target is assigned (None),
-    the target would be anything that is currently being held
-    at the `Pipeline.Universe`.
-
-    They are treated separately to highlight the difference,
-    making possible to rapidly identify whether a given data
-    structure exists for the purpose of "alpha" or "hedge".
-    """
-
-    def __init__(
-        self,
-        ticker: str,
-        data: pd.DataFrame,
-        target: Optional[Asset] = None,
-        index: Sequence[date] = None,
-        hmethod: str = _HMETHOD["EXPO"],
-        **commkwargs,
-    ):
-        super().__init__(
-            self,
-            ticker=ticker,
-            data=data,
-            index=index,
-            **commkwargs,
-        )
-
-        self.__target = target
-        self.__hmethod = hmethod
-
-    def add_target(self, target: Asset):
-        if isinstance(target, Asset):
-            self.__target = target
-
-    @property
-    def target(self) -> Optional[Asset]:
-        return self.__target
-
-    @property
-    def hmethod(self) -> str:
-        return self.__hmethod

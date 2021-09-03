@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from os import pipe
 import pandas as pd
 from numbers import Number
 from uuid import uuid3, NAMESPACE_DNS
@@ -10,8 +11,6 @@ from typing import (
     List,
     Sequence,
     Union,
-    Optional,
-    Any,
 )
 
 from .broker import Broker
@@ -19,11 +18,15 @@ from .pipeline import Pipeline
 from .strategy import Strategy
 from .calendar import Calendar
 
-from .utils.bases import Line, Base, Asset, Hedge
+from .utils.bases import Line, Base, Asset
 from .utils.math import fill_OHLC
 
 from .utils.config import (
     _DEFAULT_BUFFER,
+    _DEFAULT_HEDGE,
+    _DEFAULT_SIZING,
+    _DEFAULT_THRESH,
+    _DEFAULT_VPARAM,
     _DEFAULT_VOLATILITY,
     _DEFAULT_CARRY,
     _DEFAULT_PAIRS,
@@ -55,7 +58,7 @@ class Backtest:
         strategy: Strategy,
         pipeline: Pipeline,
         calendar: Calendar,
-        **properties: str,
+        **kwargs: str,
     ):
         if not issubclass(strategy, Strategy):
             msg = "Arg `strategy` must be a `Strategy` subclass!"
@@ -71,15 +74,16 @@ class Backtest:
         self.__firstdate: date = self.__index[0]
         self.__lastdate: date = self.__index[-1]
 
-        self.__factor: str = properties.get("factor")
-        self.__market: str = properties.get("market")
-        self.__asset: str = properties.get("asset")
-        self.__vertices: List[int] = properties.get("vertices")
+        self.__factor: str = kwargs.get("factor")
+        self.__market: str = kwargs.get("market")
+        self.__asset: str = kwargs.get("asset")
+        self.__hedge: str = kwargs.get("hedge")
+        self.__vertices: List[int] = kwargs.get("vertices")
 
         self.__main: Line = Line(self.__index)
         self.__bases: Dict[str, Base] = OrderedDict()
         self.__assets: Dict[str, Asset] = OrderedDict()
-        self.__hedges: Dict[str, Hedge] = OrderedDict()
+        self.__hedges: Dict[str, Asset] = OrderedDict()
 
         self.__broker: Broker = Broker(
             index=self.__index,
@@ -90,7 +94,6 @@ class Backtest:
             main=self.__main,
             broker=self.__broker,
             assets=self.__assets,
-            hedges=self.__hedges,
         )
 
         self.__strategy: Strategy = strategy(
@@ -98,7 +101,31 @@ class Backtest:
             pipeline=self.__pipeline,
             bases=self.__bases,
             assets=self.__assets,
-            hedges=self.__hedges,
+        )
+
+    def config_hedge(
+        self,
+        pipeline: Pipeline,
+        strategy: Strategy,
+    ):
+        if not issubclass(strategy, Strategy):
+            msg = "Arg `strategy` must be a `Strategy` subclass!"
+            raise TypeError(msg)
+        if not issubclass(pipeline, Pipeline):
+            msg = "Arg `pipeline` must be a `Pipeline` subclass!"
+            raise TypeError(msg)
+
+        self.__hpipeline: Pipeline = pipeline(
+            main=self.__main,
+            broker=self.__broker,
+            assets=self.__hedges,
+        )
+
+        self.__hstrategy: Strategy = strategy(
+            broker=self.__broker,
+            pipeline=self.__hpipeline,
+            bases=self.__bases,
+            assets=self.__hedges,
         )
 
     def add_base(
@@ -149,14 +176,16 @@ class Backtest:
     def add_hedge(
         self,
         ticker: str,
-        hmethod: str,
         data: pd.DataFrame,
         **commkwargs: Union[str, Number],
     ):
-        hedge = Hedge(
+        if not self.__hedgelike:
+            txt="Hedge Strategy not specified"
+            raise ValueError(txt)
+
+        hedge = Asset(
             data=fill_OHLC(data),
             ticker=ticker,
-            hmethod=hmethod,
             index=self.index,
             **commkwargs,
         )
@@ -167,17 +196,25 @@ class Backtest:
 
     def run(self) -> Dict[str, pd.DataFrame]:
         if not self.__assets:
-            return
+            return        
+
+        self.config_backtest()
 
         self.__pipeline.init()
         self.__strategy.init()
-        self.config_backtest()
+
+        if self.__hedges:
+            self.__hpipeline.init()
+            self.__hstrategy.init()
 
         while self.dt < self.__lastdate:
-            self.__advance()
+            self.__advance_buffers()
             self.__broker.beg_of_period()
             self.__pipeline.next()
             self.__strategy.next()
+            if self.__hedges:
+                self.__hpipeline.next()
+                self.__hstrategy.next()
             self.__broker.end_of_period()
 
         return {
@@ -187,41 +224,11 @@ class Backtest:
             "broker": self.__broker,
         }
 
-    def __advance(self):
+    def __advance_buffers(self):
         self.__main.next()
         self.__broker.next()
         for data in self.datas.values():
             data.next()
-
-    def config_backtest(self):
-        self.__hash = {
-            "factor": self.__factor,
-            "market": self.__market,
-            "asset": self.__asset,
-            "vertices": self.__vertices,
-            "model": self.__strategy.__class__.__name__,
-            "params": dict(self.__strategy.get_params()),
-        }
-
-        self.__uid = uuid3(
-            NAMESPACE_DNS,
-            str(self.__hash),
-        )
-
-        self.__properties = pd.DataFrame.from_records(
-            [
-                {
-                    **self.__hash,
-                    "uid": self.__uid.hex,
-                    "sdate": self.__firstdate.isoformat(),
-                    "edate": self.__lastdate.isoformat(),
-                    "updtime": datetime.now().isoformat(),
-                    "budget": _DEFAULT_VOLATILITY,
-                    "buffer": _DEFAULT_BUFFER,
-                    "bookname": self.bookname,
-                }
-            ]
-        )
 
     @property
     def dt(self) -> date:
@@ -252,5 +259,41 @@ class Backtest:
         return self.__bases
 
     @property
-    def datas(self) -> Dict[str, Union[Base, Asset, Hedge]]:
+    def datas(self) -> Dict[str, Union[Base, Asset]]:
         return {**self.__bases, **self.__assets, **self.__hedges}
+
+    def config_backtest(self):
+        self.__hash = {
+            "factor": self.__factor,
+            "market": self.__market,
+            "asset": self.__asset,
+            "hedge": self.__hedge,
+            "vertices": self.__vertices,
+            "model": self.__strategy.__class__.__name__,
+            "params": dict(self.__strategy.get_params()),
+        }
+
+        self.__uid = uuid3(
+            NAMESPACE_DNS,
+            str(self.__hash),
+        )
+
+        self.__properties = pd.DataFrame.from_records(
+            [
+                {
+                    **self.__hash,
+                    "uid": self.__uid.hex,
+                    "sdate": self.__firstdate.isoformat(),
+                    "edate": self.__lastdate.isoformat(),
+                    "updtime": datetime.now().isoformat(),
+                    "bases": list(self.__bases.keys()),
+                    "sizing": _DEFAULT_SIZING,
+                    "thresh": _DEFAULT_THRESH,
+                    "vparam": _DEFAULT_VPARAM,
+                    "hmethod": _DEFAULT_HEDGE,
+                    "budget": _DEFAULT_VOLATILITY,
+                    "buffer": _DEFAULT_BUFFER,
+                    "bookname": self.bookname,
+                }
+            ]
+        )

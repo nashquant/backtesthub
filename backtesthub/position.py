@@ -1,9 +1,8 @@
 #! /usr/bin/env python3
 
-from typing import Union, Optional
 from numbers import Number
-
-from .utils.bases import Asset, Hedge
+from typing import Union, Optional
+from .utils.bases import Asset
 
 class Position:
 
@@ -14,12 +13,12 @@ class Position:
 
     def __init__(
         self,
-        data: Union[Asset, Hedge],
+        data: Union[Asset],
         size: Number,
         stop: Optional[Number] = None,
     ):
-        if not isinstance(data, (Asset, Hedge)):
-            msg = "Invalid Data Type"
+        if not isinstance(data, Asset):
+            msg = "Arg `Data` must be an Asset type"
             raise TypeError(msg)
             
         self.__data = data
@@ -27,20 +26,17 @@ class Position:
         self.__size = size
 
     def __repr__(self):
-        kls = self.__class__.__name__
-        tck = self.__data.ticker
-        sig = self.__data.signal[0]
-        siz = self.__size
 
-        log = f"{kls}(Ticker: {tck}, Size: {siz}, Signal: {sig})"
-
-        return log
+        return (
+            f"{self.__class__.__name__}(Ticker: {self.__data.ticker}, "
+            f"Size: {self.__size}, Signal: {self.__data.signal[0]})"
+        )
 
     def check_stop(self):
         raise NotImplementedError()
 
-    def add(self, delta: int):
-        if not type(delta) == int:
+    def add(self, delta: Number):
+        if not type(delta) == Number:
             msg="Wrong input for position delta"
             raise TypeError(msg)
 
@@ -57,6 +53,10 @@ class Position:
         return self.__size * mult * price
 
     @property
+    def data(self) -> Asset:
+        return self.__data
+
+    @property
     def stop(self) -> Optional[float]:
         return self.__stop
 
@@ -71,7 +71,3 @@ class Position:
     @property
     def size(self) -> float:
         return self.__size
-    
-    @property
-    def data(self) -> Union[Asset, Hedge]:
-        return self.__data
