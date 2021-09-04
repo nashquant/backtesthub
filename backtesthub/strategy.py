@@ -128,12 +128,10 @@ class Strategy(metaclass=ABCMeta):
         `Base` data, and transfer the results
         to one or multiple other `Assets` data.
         """
-        base_lines = set(base.lines)
+        default = ["signal", "volatility"]
         
-        if not lines: 
-            new_lines = ["signal", "volatility"]
-        else:
-            new_lines = lines
+        base_lines = list(base.lines)
+        new_lines = lines or default
             
         for asset in assets.values():
             for line in new_lines:
@@ -158,15 +156,14 @@ class Strategy(metaclass=ABCMeta):
         """
         `Order Sizer`
 
-        Very important object that allows one
+        Very important method that allows one
         to compute with great flexibility the
         order size to be sent to the broker.
 
         First thing is to correctly select 
-        the method to be employed.
-        
-        Default: Sizing is done with inverse
-        volatility sizing.
+        the method to be employed, which by
+        "default" is the inverse volatility 
+        sizing.
 
         Obs: For other methods, such as target
         expo order it is necessary to pass a
