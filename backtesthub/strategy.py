@@ -2,9 +2,9 @@
 
 import math
 import numpy as np
-from collections import OrderedDict
 from numbers import Number
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict, defaultdict as ddict
 from typing import Callable, Dict, Union, Optional, Sequence
 
 from .broker import Broker
@@ -20,6 +20,7 @@ from .utils.config import (
     _MIN_VOL,
     _METHOD,
 )
+
 
 class Strategy(metaclass=ABCMeta):
     def __init__(
@@ -39,6 +40,7 @@ class Strategy(metaclass=ABCMeta):
     @abstractmethod
     def init():
         """ """
+
     @abstractmethod
     def next():
         """ """
@@ -56,15 +58,15 @@ class Strategy(metaclass=ABCMeta):
         - Takes a custom function, a data structre
           that can either be a Base or an Asset
           and some parameters to be passed to func.
-        
+
         - The function is supposed to receive the
           data structure, and it is expected that
           the function can manipulate the data "schema".
 
         - The function should then perform calculations
-          in a Line of the object and return an array-like 
+          in a Line of the object and return an array-like
           object containing only numbers, that will then,
-          be converted to indicators and signal lines 
+          be converted to indicators and signal lines
         """
         try:
             ind = func(data, *kwargs.values())
@@ -78,15 +80,13 @@ class Strategy(metaclass=ABCMeta):
             msg = f"Line length not compatible"
             raise ValueError(msg)
 
-        indicator = Line(array=ind)
-        signal = Line(array=np.sign(ind))
+        signal = Line(array=ind)
         name = name or "signal"
 
         data.add_line(
             name=name,
             line=signal,
         )
-
 
     def V(
         self,
@@ -98,7 +98,7 @@ class Strategy(metaclass=ABCMeta):
         `Volatility Assignment`
 
         Basically does the same job as `self.I`
-        but it is applied to volatility calcs.  
+        but it is applied to volatility calcs.
         """
         try:
             vol = func(data, *kwargs.values())
@@ -117,22 +117,22 @@ class Strategy(metaclass=ABCMeta):
         lines: Sequence[str] = [],
     ):
         """
-        `Broadcasting Lines`
+        `Lines Broadcasting`
 
         Very important object that allows one
         to assign the indicator/signal lines
         of an object to another one.
 
         Therefore, it allows one to calculate
-        signals/volatility/indicators using a 
+        signals/volatility/indicators using a
         `Base` data, and transfer the results
         to one or multiple other `Assets` data.
         """
         default = ["signal", "volatility"]
-        
+
         base_lines = list(base.lines)
         new_lines = lines or default
-            
+
         for asset in assets.values():
             for line in new_lines:
                 line = line.lower()
@@ -147,8 +147,8 @@ class Strategy(metaclass=ABCMeta):
 
     def sizing(
         self,
-        data: Optional[Asset] = None,
-        target: Optional[float] = None,
+        data: Asset,
+        texpo: Optional[float] = None,
         method: str = _DEFAULT_SIZING,
         min_size: int = _DEFAULT_MIN_SIZE,
     ) -> Optional[Number]:
@@ -160,25 +160,23 @@ class Strategy(metaclass=ABCMeta):
         to compute with great flexibility the
         order size to be sent to the broker.
 
-        First thing is to correctly select 
+        First thing is to correctly select
         the method to be employed, which by
-        "default" is the inverse volatility 
+        "default" is the inverse volatility
         sizing.
 
         Obs: For other methods, such as target
         expo order it is necessary to pass a
-        number to parameter `target`.
-        
+        number to parameter `texpo`.
+
         """
-        if data is None:
-            data = self.asset
 
         if method not in _METHOD:
-            msg="Method not implemented"
+            msg = "Method not implemented"
             raise ValueError(msg)
-        
+
         if not isinstance(min_size, int) or min_size < 1:
-            msg="Invalid min_size, must be int >=1"
+            msg = "Invalid min_size, must be int >=1"
             raise ValueError(msg)
 
         method = _METHOD[method]
@@ -186,7 +184,7 @@ class Strategy(metaclass=ABCMeta):
         curr = data.currency
         if not curr == _DEFAULT_CURRENCY:
             pair = f"{curr}{_DEFAULT_CURRENCY}"
-            factor *= self.__broker.currs[pair].close[0] 
+            factor *= self.__broker.currs[pair].close[0]
 
         signal = data.signal[0]
         price = data.close[0] * factor
@@ -202,41 +200,71 @@ class Strategy(metaclass=ABCMeta):
             if data.asset in _MIN_VOL:
                 min_vol = _MIN_VOL[data.asset]
                 vol_asset = max(vol_asset, min_vol)
-            
-            target = vol_target/ vol_asset 
-            size = signal * target * equity / price
+            texpo = vol_target / vol_asset
 
         elif method == _METHOD["EXPO"]:
-            if target is None:
-                msg="Need to assign a Target"
-                raise ValueError(msg)
+            assert texpo is not None
 
-            size = signal * target * equity / price
+        size = signal * texpo * equity / price
 
-        else:
-            msg = "Method still not Implemented"
-            raise ValueError(msg)
-        
         if size > 0:
-            size = min_size*math.floor(size/min_size)
+            size = min_size * math.floor(size / min_size)
         elif size < 0:
-            size = min_size*math.ceil(size/min_size)
+            size = min_size * math.ceil(size / min_size)
 
-        return size 
+        return size
 
     def order(
+        self,
+        data: Optional[Asset] = None,
+        size: Optional[Number] = None,
+        thresh: float = _DEFAULT_THRESH,
+        limit: Optional[float] = None,
+        stop: Optional[float] = None,
+    ):
+        """
+        `Order`
+
+        Write description!
+
+        """
+
+        if data is None:
+            data = self.asset
+
+        position = self.__broker.get_position(data.ticker)
+        current = position.size if position is not None else 0
+
+        if size is None:
+            return
+
+        has_position = not current == 0
+        has_tresh = thresh > 0
+
+        if has_position and has_tresh:
+            stimulus = abs(size) / abs(current)
+            if stimulus < thresh:
+                return
+
+        self.__broker.new_order(
+            data=data,
+            size=size,
+            limit=limit,
+        )
+
+    def order_target(
         self,
         data: Optional[Asset] = None,
         target: Optional[Number] = None,
         thresh: float = _DEFAULT_THRESH,
         limit: Optional[float] = None,
         stop: Optional[float] = None,
-    ) -> Optional[Number]:
+    ):
         """
-        `Order Target Generation`
+        `Order Target`
 
         Write description!
-        
+
         """
 
         if data is None:
@@ -248,11 +276,11 @@ class Strategy(metaclass=ABCMeta):
         if target is None:
             return
 
-        if target==current:
+        if target == current:
             return
 
-        has_position = (not current == 0)
-        has_tresh = (thresh > 0) 
+        has_position = not current == 0
+        has_tresh = thresh > 0
 
         delta = target - current
 
@@ -267,22 +295,30 @@ class Strategy(metaclass=ABCMeta):
             limit=limit,
         )
 
-        return delta
-
     def get_params(self) -> Dict[str, Number]:
         return self.__params
 
     def get_universe(self) -> Sequence[Asset]:
         return self.__pipeline.universe
+    
+    def get_expo(self) -> Number:
+        return self.__broker.get_expo()
+    
+    def get_texpo(self) -> Number:
+        return self.__broker.get_texpo()
 
     @property
     def base(self) -> Base:
         return tuple(self.__bases.values())[0]
 
     @property
+    def hbase(self) -> Base:
+        return tuple(self.__bases.values())[-1]
+
+    @property
     def bases(self) -> Dict[str, Base]:
         return self.__bases
-    
+
     @property
     def asset(self) -> Asset:
         return tuple(self.__assets.values())[0]
@@ -290,7 +326,3 @@ class Strategy(metaclass=ABCMeta):
     @property
     def assets(self) -> Dict[str, Asset]:
         return self.__assets
-
-    @property
-    def pipeline(self) -> Pipeline:
-        return self.__pipeline

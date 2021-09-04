@@ -36,7 +36,6 @@ ohlc = ["open", "high", "low", "close"]
 
 ############################################
 
-
 class Trend_SMACross(Strategy):
 
     params = {
@@ -62,16 +61,17 @@ class Trend_SMACross(Strategy):
             lines=["signal", "volatility"],
         )
 
-        self.target = defaultdict(int)
-        self.texpo = defaultdict(int)
-
     def next(self):
-        for asset in self.get_universe():
-            target, texpo = self.sizing(data = asset)
-            self.target[data.ticker] = target
-            self.texpo[data.ticker] = texpo 
-            
-            self.order(data = asset, target = target)
+        univ = self.get_universe()
+
+        for asset in univ:
+            self.order_target(
+                data=asset,
+                target=self.sizing(
+                    data=asset,
+                ),
+            )
+
 
 
 calendar = Calendar(
@@ -166,7 +166,7 @@ for ticker, prop in meta.iterrows():
     )
 
 res = backtest.run()
-strat_meta = res["meta"]
+strat_meta = res["meta"].iloc[0,:]
 df, rec = res["quotas"], res["records"]
 
 pd.options.display.float_format = "{:,.2f}".format

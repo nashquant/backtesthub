@@ -17,7 +17,7 @@ class Single(Pipeline):
 class Rolling(Pipeline):
 
     def init(self):
-        self.chain, _ = self.build_chain(), self.apply_roll()
+        self.build_chain(), self.apply_roll()
 
     def next(self) -> Sequence[Asset]:
         if self.main.buffer + _DEFAULT_LAG < len(self.main):

@@ -179,10 +179,6 @@ class Backtest:
         data: pd.DataFrame,
         **commkwargs: Union[str, Number],
     ):
-        if not self.__hedgelike:
-            txt="Hedge Strategy not specified"
-            raise ValueError(txt)
-
         hedge = Asset(
             data=fill_OHLC(data),
             ticker=ticker,
@@ -196,7 +192,7 @@ class Backtest:
 
     def run(self) -> Dict[str, pd.DataFrame]:
         if not self.__assets:
-            return        
+            return
 
         self.config_backtest()
 
@@ -236,7 +232,15 @@ class Backtest:
 
     @property
     def bookname(self) -> str:
-        return f"{self.__factor}-{self.__market}-{self.__asset}"
+        book = f"{self.__factor}-{self.__market}-{self.__asset}"
+        mapper = dict(
+            EXPO="/",
+            BETA="#",
+        )
+        if self.__hedge:
+            book += f"{mapper[_DEFAULT_HEDGE]}{self.__hedge}"
+
+        return book
 
     @property
     def index(self) -> Sequence[date]:
@@ -251,7 +255,7 @@ class Backtest:
         return tuple(self.__bases.values())[0]
 
     @property
-    def h_base(self) -> Base:
+    def hbase(self) -> Base:
         return tuple(self.__bases.values())[-1]
 
     @property
@@ -290,7 +294,6 @@ class Backtest:
                     "sizing": _DEFAULT_SIZING,
                     "thresh": _DEFAULT_THRESH,
                     "vparam": _DEFAULT_VPARAM,
-                    "hmethod": _DEFAULT_HEDGE,
                     "budget": _DEFAULT_VOLATILITY,
                     "buffer": _DEFAULT_BUFFER,
                     "bookname": self.bookname,

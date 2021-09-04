@@ -36,21 +36,11 @@ class Position:
         raise NotImplementedError()
 
     def add(self, delta: Number):
-        if not type(delta) == Number:
-            msg="Wrong input for position delta"
-            raise TypeError(msg)
-
+        if not isinstance(delta, Number):
+            msg="`Position Size must be a Number!"
+            raise TypeError()
+        
         self.__size+=delta     
-
-    @property
-    def expo(self) -> float:
-        """
-        Exposition
-        """
-        mult = self.data.multiplier
-        price = self.data.close[0]
-
-        return self.__size * mult * price
 
     @property
     def data(self) -> Asset:

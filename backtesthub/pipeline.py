@@ -47,14 +47,11 @@ class Pipeline(metaclass=ABCMeta):
     def next(self) -> Sequence[Asset]:
         """ """
 
-    def build_chain(
-        self, 
-        assets: Dict[str, Asset]
-    ) -> Sequence[str] :
+    def build_chain(self):
 
         maturities: Dict[str, date] = {
             asset.ticker: asset.maturity
-            for asset in assets.values()
+            for asset in self.assets.values()
             if asset.maturity is not None
         }
 
@@ -66,7 +63,7 @@ class Pipeline(metaclass=ABCMeta):
             )
         )
 
-        return list(chain.keys()) 
+        self.chain = list(chain.keys()) 
 
     @property
     def asset(self) -> Asset:

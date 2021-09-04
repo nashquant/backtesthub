@@ -59,8 +59,16 @@ class Riskpar_BuyNHold(Strategy):
         )
 
     def next(self):
-        for asset in self.get_universe():
-            self.order_target(asset)
+        univ = self.get_universe()
+
+        for asset in univ:
+            self.order_target(
+                data=asset,
+                target=self.sizing(
+                    data=asset,
+                ),
+            )
+
 
 
 calendar = Calendar(
@@ -136,7 +144,7 @@ backtest.add_asset(
 )
 
 res = backtest.run()
-strat_meta = res["meta"]
+strat_meta = res["meta"].iloc[0,:]
 df, rec = res["quotas"], res["records"]
 
 pd.options.display.float_format = "{:,.2f}".format

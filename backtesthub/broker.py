@@ -34,11 +34,11 @@ class Broker:
         self.__length = len(index)
         self.__buffer = _DEFAULT_BUFFER
         self.__carry: float = _DEFAULT_CRATE
+        self.__positions: Dict[str, Position] = {}
         self.__orders: Dict[str, Order] = {}
         self.__cancels: List[Order] = []
         self.__executed: List[Order] = []
         self.__currs: Dict[str, Base] = {}
-        self.__positions: Dict[str, Position] = {}
 
         self.__cash = np.ones(self.__length) * cash
         self.__open = np.ones(self.__length) * cash
@@ -100,7 +100,13 @@ class Broker:
 
         if ticker not in self.__positions:
             self.__positions.update(
-                {ticker: Position(data, 0)},
+                {
+                    ticker: Position(
+                        data=data,
+                        size=0,
+                        stop=stop,
+                    )
+                },
             )
 
     def close(self, ticker: str):
@@ -223,7 +229,7 @@ class Broker:
         CASH = M2M = total_comm
 
         if order.data.stocklike:
-            CASH -= (size * exec_price)
+            CASH -= size * exec_price
 
         self.__cash[self.__buffer] += CASH
 
@@ -233,7 +239,8 @@ class Broker:
         self.__tpnl[ticker] += M2M
 
         position = self.__positions[ticker]
-        position.add(delta=order.size)
+        position.add(order.size)
+        
         if not position.size:
             self.__positions.pop(ticker)
 
@@ -297,11 +304,6 @@ class Broker:
 
             order = self.__orders.get(ticker)
             price, open = data.close[0], data.open[0]
-            MTM = size * (price - open) * factor
-            self.__equity[self.__buffer] += MTM
-            self.__ipnl[ticker] += MTM
-            if not data.stocklike:
-                self.__cash[self.__buffer] += MTM
 
             if order:
                 target = size + order.size
@@ -310,6 +312,12 @@ class Broker:
 
             texpo = target * factor * price
             texpo = texpo / self.curr_equity
+
+            MTM = size * (price - open) * factor
+            self.__equity[self.__buffer] += MTM
+            self.__ipnl[ticker] += MTM
+            if not data.stocklike:
+                self.__cash[self.__buffer] += MTM
 
             self.__records.append(
                 {
@@ -355,6 +363,53 @@ class Broker:
 
     def get_orders(self, ticker: str) -> Optional[Position]:
         return self.__orders.get(ticker)
+
+    def get_expo(self) -> Number:
+        """
+        Get Current Exposition (% Equity)
+        Reference price calculated @ CLOSE
+        """
+        expo = 0
+        
+        for pos in self.position_stack:
+            data, ticker = pos.data, pos.ticker
+            size, factor = pos.size, data.multiplier
+
+            curr = data.currency
+            if not curr == _DEFAULT_CURRENCY:
+                pair = f"{curr}{_DEFAULT_CURRENCY}"
+                factor *= self.__currs[pair].close[0]
+
+            expo+= size * factor * data.close[0] / self.curr_equity
+        
+        return expo
+
+    def get_texpo(self) -> Number:
+        """
+        Current Target Exposition (% Equity)
+        Reference price calculated @ CLOSE
+        """
+        texpo = 0
+        
+        for pos in self.position_stack:
+            data, ticker = pos.data, pos.ticker
+            size, factor = pos.size, data.multiplier
+
+            curr = data.currency
+            if not curr == _DEFAULT_CURRENCY:
+                pair = f"{curr}{_DEFAULT_CURRENCY}"
+                factor *= self.__currs[pair].close[0]
+
+            order = self.__orders.get(ticker)
+
+            if order:
+                target = size + order.size
+            else:
+                target = size
+
+            texpo+=target * factor * data.close[0] / self.curr_equity
+        
+        return texpo
 
     @property
     def date(self) -> date:
@@ -440,7 +495,7 @@ class Broker:
 
     @property
     def cum_return(self) -> Number:
-        return 100 * (self.curr_equity/self.__startcash - 1)
+        return 100 * (self.curr_equity / self.__startcash - 1)
 
     @property
     def df(self) -> pd.DataFrame:

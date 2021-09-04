@@ -49,8 +49,6 @@ class Order:
 
         return log
 
-    def cancel(self):
-        self.__status = _STATUS["CANC"]
 
     @property
     def issue_date(self) -> date:
