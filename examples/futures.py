@@ -2,6 +2,7 @@
 
 import os, sys
 import pandas as pd
+from collections import defaultdict
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 
@@ -35,6 +36,7 @@ ohlc = ["open", "high", "low", "close"]
 
 ############################################
 
+
 class Trend_SMACross(Strategy):
 
     params = {
@@ -44,19 +46,32 @@ class Trend_SMACross(Strategy):
 
     def init(self):
         self.I(
-            self.base,
-            SMACross,
+            data=self.base,
+            func=SMACross,
+            name="signal",
             **self.params,
         )
 
-        self.broadcast(
-            self.base,
-            self.assets,
+        self.V(
+            data=self.base,
         )
+
+        self.broadcast(
+            base=self.base,
+            assets=self.assets,
+            lines=["signal", "volatility"],
+        )
+
+        self.target = defaultdict(int)
+        self.texpo = defaultdict(int)
 
     def next(self):
         for asset in self.get_universe():
-            self.order_target(asset)
+            target, texpo = self.sizing(data = asset)
+            self.target[data.ticker] = target
+            self.texpo[data.ticker] = texpo 
+            
+            self.order(data = asset, target = target)
 
 
 calendar = Calendar(

@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Sequence, Union
 from .order import Order
 from .position import Position
 
-from .utils.bases import Base, Asset, Hedge
+from .utils.bases import Base, Asset
 from .utils.config import (
     _DEFAULT_CURRENCY,
     _DEFAULT_BUFFER,
@@ -67,9 +67,10 @@ class Broker:
 
     def new_order(
         self,
-        data: Union[Asset, Hedge],
-        size: Optional[float] = 0,
-        limit: Optional[float] = None,
+        data: Asset,
+        size: Number,
+        limit: Optional[Number] = None,
+        stop: Optional[Number] = None,
     ):
         """
         `Order Creation`
@@ -94,7 +95,7 @@ class Broker:
         if pending is not None:
             self.__cancel_order(pending)
 
-        order = Order(data, size, limit)
+        order = Order(data, size, limit, stop)
         self.__orders.update({ticker: order})
 
         if ticker not in self.__positions:

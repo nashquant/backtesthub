@@ -42,14 +42,20 @@ class Riskpar_BuyNHold(Strategy):
 
     def init(self):
         self.I(
-            self.base,
-            Buy_n_Hold,
+            data=self.base,
+            func=Buy_n_Hold,
+            name="signal",
             **self.params,
         )
 
+        self.V(
+            data=self.base,
+        )
+
         self.broadcast(
-            self.base,
-            self.assets,
+            base=self.base,
+            assets=self.assets,
+            lines=["signal", "volatility"],
         )
 
     def next(self):

@@ -7,18 +7,18 @@ from datetime import date
 from workdays import networkdays
 from typing import Union, Sequence
 
-from .bases import Base, Asset, Hedge
+from .bases import Base, Asset
 from .config import (
     _DEFAULT_VPARAM,
 )
 
 
 def EWMA(
-    data: Union[Base, Asset, Hedge],
+    data: Union[Base, Asset],
     alpha: float = _DEFAULT_VPARAM,
 ) -> pd.Series:
 
-    if not type(data) in (Base, Asset, Hedge):
+    if not type(data) in (Base, Asset):
         msg = "Wrong data type input"
         raise TypeError(msg)
 
@@ -32,12 +32,12 @@ def EWMA(
 
 
 def EWMAVolatility(
-    data: Union[Base, Asset, Hedge],
+    data: Union[Base, Asset],
     alpha: float = _DEFAULT_VPARAM,
     freq: int = 252,
 ) -> pd.Series:
 
-    if not type(data) in (Base, Asset, Hedge):
+    if not type(data) in (Base, Asset):
         msg = "Wrong data type input"
         raise TypeError(msg)
 
@@ -79,7 +79,7 @@ def adjust_stocks(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def rate2price(
-    data: Union[Asset, Hedge],
+    data: Asset,
     maturity: date,
     holidays: Sequence[date] = [],
     contract_size: float = float("10e5"),

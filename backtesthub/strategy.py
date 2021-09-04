@@ -47,6 +47,7 @@ class Strategy(metaclass=ABCMeta):
         self,
         data: Union[Base, Asset],
         func: Callable,
+        name: Optional[str] = None,
         **kwargs: Number,
     ):
         """
@@ -79,19 +80,13 @@ class Strategy(metaclass=ABCMeta):
 
         indicator = Line(array=ind)
         signal = Line(array=np.sign(ind))
+        name = name or "signal"
 
         data.add_line(
-            name="signal",
+            name=name,
             line=signal,
         )
 
-        data.add_line(
-            name="indicator",
-            line=indicator,
-        )
-
-        if "volatility" not in set(data.lines):
-            self.V(data=data)
 
     def V(
         self,
@@ -152,49 +147,32 @@ class Strategy(metaclass=ABCMeta):
                     line=Line(obj),
                 )
 
-    def order_target(
+    def sizing(
         self,
         data: Optional[Asset] = None,
         target: Optional[float] = None,
         method: str = _DEFAULT_SIZING,
-        thresh: float = _DEFAULT_THRESH,
         min_size: int = _DEFAULT_MIN_SIZE,
-        limit: Optional[float] = None,
-        stop: Optional[float] = None,
-    ) -> Number:
+    ) -> Optional[Number]:
+
         """
-        `Order Target Generation`
+        `Order Sizer`
 
         Very important object that allows one
-        to create with great flexibility an 
-        order to be sent to the broker.
+        to compute with great flexibility the
+        order size to be sent to the broker.
 
         First thing is to correctly select 
         the method to be employed.
         
         Default: Sizing is done with inverse
         volatility sizing.
-        
+
         Obs: For other methods, such as target
         expo order it is necessary to pass a
         number to parameter `target`.
-
-        Then, the user can manipulate the order
-        by assigning other behavior such as:
-
-        1) `Threshold`: order is trigged only if 
-           the position is not opened, else if
-           the "delta" is a least "thresh" times
-           the current position size.
-        
-        2) `Min_size`: ...
-
-        3) `Limit_price`: ...
-
-        4) `Stop_price`: ...
         
         """
-
         if data is None:
             data = self.asset
 
@@ -202,14 +180,11 @@ class Strategy(metaclass=ABCMeta):
             msg="Method not implemented"
             raise ValueError(msg)
         
-        if type(min_size)!= int or min_size < 1:
+        if not isinstance(min_size, int) or min_size < 1:
             msg="Invalid min_size, must be int >=1"
-            raise ValueError(msg) 
+            raise ValueError(msg)
 
-        current = self.get_current(data)
-        equity = self.__broker.last_equity
         method = _METHOD[method]
-
         factor = data.multiplier
         curr = data.currency
         if not curr == _DEFAULT_CURRENCY:
@@ -218,10 +193,11 @@ class Strategy(metaclass=ABCMeta):
 
         signal = data.signal[0]
         price = data.close[0] * factor
+        equity = self.__broker.last_equity
 
         if np.isnan(price):
             print(f"Data Warn!, {data} is incomplete !!")
-            return
+            return 0
 
         if method == _METHOD["EWMA"]:
             vol_target = _DEFAULT_VOLATILITY
@@ -249,13 +225,39 @@ class Strategy(metaclass=ABCMeta):
         elif size < 0:
             size = min_size*math.ceil(size/min_size)
 
-        if size==current:
+        return size 
+
+    def order(
+        self,
+        data: Optional[Asset] = None,
+        target: Optional[Number] = None,
+        thresh: float = _DEFAULT_THRESH,
+        limit: Optional[float] = None,
+        stop: Optional[float] = None,
+    ) -> Optional[Number]:
+        """
+        `Order Target Generation`
+
+        Write description!
+        
+        """
+
+        if data is None:
+            data = self.asset
+
+        position = self.__broker.get_position(data.ticker)
+        current = position.size if position is not None else 0
+
+        if target is None:
+            return
+
+        if target==current:
             return
 
         has_position = (not current == 0)
         has_tresh = (thresh > 0) 
 
-        delta = size - current
+        delta = target - current
 
         if has_position and has_tresh:
             stimulus = abs(delta) / abs(current)
@@ -275,15 +277,6 @@ class Strategy(metaclass=ABCMeta):
 
     def get_universe(self) -> Sequence[Asset]:
         return self.__pipeline.universe
-
-    def get_current(self, data: Asset) -> Number:
-        if isinstance(data, str):
-            data = self.__assets[data]
-
-        position = self.__broker.get_position(data.ticker)
-        size = position.size if position is not None else 0
-
-        return size
 
     @property
     def base(self) -> Base:

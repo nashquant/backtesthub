@@ -1,27 +1,25 @@
 #! /usr/bin/env python3
 
+from typing import Sequence
 from ..pipeline import Pipeline
-from typing import Sequence, Union
-from ..utils.bases import Asset, Hedge
+from ..utils.bases import Asset
 from ..utils.config import (
     _DEFAULT_LAG,
 )
-
 
 class Single(Pipeline):
     def init(self):
         self.universe = tuple(self.assets.values())
 
-    def next(self) -> Sequence[Union[Asset, Hedge]]:
+    def next(self) -> Sequence[Asset]:
         return self.universe
-
 
 class Rolling(Pipeline):
 
     def init(self):
-        self.build_chain(), self.apply_roll()
+        self.chain, _ = self.build_chain(), self.apply_roll()
 
-    def next(self) -> Sequence[Union[Asset, Hedge]]:
+    def next(self) -> Sequence[Asset]:
         if self.main.buffer + _DEFAULT_LAG < len(self.main):
             ref_date = self.main[_DEFAULT_LAG]
             while ref_date > self.maturity:
@@ -43,12 +41,12 @@ class Vertice(Pipeline):
     def init(self):
         raise NotImplementedError()
     
-    def next(self) -> Sequence[Union[Asset, Hedge]]:
+    def next(self) -> Sequence[Asset]:
         raise NotImplementedError()
 
 class Ranking(Pipeline):
     def init(self):
         raise NotImplementedError()
     
-    def next(self) -> Sequence[Union[Asset, Hedge]]:
+    def next(self) -> Sequence[Asset]:
         raise NotImplementedError()

@@ -14,10 +14,12 @@ class Order:
         data: Asset,
         size: Number,
         limit: Optional[Number] = None,
+        stop: Optional[Number] = None,
     ):
         self.__data = data
         self.__size = size
         self.__limit = limit
+        self.__stop = stop
         self.__status: str = _STATUS["WAIT"]
 
         self.__isbuy: bool = self.__size > 0
@@ -53,7 +55,7 @@ class Order:
     @property
     def issue_date(self) -> date:
         return self.__issue_date
-    
+
     @property
     def exec_date(self) -> Optional[date]:
         return self.__exec_date
@@ -77,7 +79,7 @@ class Order:
     @property
     def ticker(self) -> str:
         return self.__ticker
-    
+
     @property
     def data(self) -> Asset:
         return self.__data
@@ -93,18 +95,18 @@ class Order:
     @property
     def total_comm(self) -> Number:
         """
-        Total Commission (Absolute $) 
+        Total Commission (Absolute $)
         """
         comm = self.__data.commission
         commtype = self.__data.commtype
 
         if commtype == _COMMTYPE["PERC"]:
-            exec_price = self.exec_price 
-            if exec_price is None: 
+            exec_price = self.exec_price
+            if exec_price is None:
                 return 0
             comm = exec_price * comm
 
-        return - comm * abs(self.__size)
+        return -comm * abs(self.__size)
 
     @property
     def exec_price(self) -> Number:
