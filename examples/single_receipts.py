@@ -46,7 +46,6 @@ config = {
 ##########################################################
 ##################### STRATEGY SETUP #####################
 
-
 class Riskpar_BuyNHold(Strategy):
     params = {}
 
@@ -259,3 +258,4 @@ df, rec = res["quotas"], res["records"]
 
 print("\n" + str(strat_meta))
 print("\n" + str(df))
+print("\n" + str(rec))

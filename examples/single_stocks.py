@@ -24,7 +24,7 @@ from backtesthub.utils.config import (
 
 pd.options.mode.chained_assignment = None
 
-################## CONFIG ##################
+######################### CONFIG #########################
 
 base = "IMAB5+"
 obases = ["CARRY"]
@@ -41,8 +41,8 @@ config = {
     "base": base,
 }
 
-############################################
-
+##########################################################
+##################### STRATEGY SETUP #####################
 
 class Riskpar_BuyNHold(Strategy):
     params = {}
@@ -76,28 +76,14 @@ class Riskpar_BuyNHold(Strategy):
                 ),
             )
 
-
-
-calendar = Calendar(
-    start=_DEFAULT_SDATE,
-    end=_DEFAULT_EDATE,
-    country="BR",
-)
-
-backtest = Backtest(
-    strategy=Riskpar_BuyNHold,
-    pipeline=Single,
-    calendar=calendar,
-    **config
-)
+##########################################################
+##################  DATABASE OPERATIONS ##################
 
 engine = create_engine(
     URL.create(**_DEFAULT_URL),
     pool_pre_ping=True,
     echo=False,
 )
-
-##################  DATABASE OPERATIONS ##################
 
 base_sql = (
     "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
@@ -129,6 +115,23 @@ carry.set_index("date", inplace=True)
 carry = carry.pct_change()
 
 ##########################################################
+####################  MAIN OPERATIONS ####################
+
+calendar = Calendar(
+    start=_DEFAULT_SDATE,
+    end=min(
+        _DEFAULT_EDATE,
+        max(price.index),
+    ),
+    country="BR",
+)
+
+backtest = Backtest(
+    strategy=Riskpar_BuyNHold,
+    pipeline=Single,
+    calendar=calendar,
+    **config
+)
 
 backtest.add_base(
     ticker=base,
@@ -149,8 +152,13 @@ backtest.add_asset(
 )
 
 res = backtest.run()
+
+##########################################################
+################### RESULTS MANAGEMENT ###################
+
 strat_meta = res["meta"].iloc[0,:]
 df, rec = res["quotas"], res["records"]
 
 print("\n" + str(strat_meta))
 print("\n" + str(df))
+print("\n" + str(rec))

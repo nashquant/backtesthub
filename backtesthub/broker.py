@@ -320,22 +320,40 @@ class Broker:
             if not data.stocklike:
                 self.__cash[self.__buffer] += MTM
 
-            self.__records.append(
-                {
-                    "date": self.date.isoformat(),
-                    "ticker": ticker,
-                    "asset": data.asset,
-                    "size": size,
-                    "opnl": self.__opnl[ticker],
-                    "ipnl": self.__ipnl[ticker],
-                    "tpnl": self.__tpnl[ticker],
-                    "cpnl": self.__cpnl[ticker],
-                    "signal": data.signal[0],
-                    "refvol": data.volatility[0],
-                    "target": target,
-                    "texpo": texpo,
-                }
-            )
+            if not data.rateslike:
+                self.__records.append(
+                    {
+                        "date": self.date.isoformat(),
+                        "ticker": ticker,
+                        "asset": data.asset,
+                        "size": size,
+                        "opnl": self.__opnl[ticker],
+                        "ipnl": self.__ipnl[ticker],
+                        "tpnl": self.__tpnl[ticker],
+                        "cpnl": self.__cpnl[ticker],
+                        "signal": data.signal[0],
+                        "refvol": data.volatility[0],
+                        "target": target,
+                        "texpo": texpo,
+                    }
+                )
+            else:
+                self.__records.append(
+                    {
+                        "date": self.date.isoformat(),
+                        "ticker": ticker,
+                        "asset": data.asset,
+                        "size": -size,
+                        "opnl": self.__opnl[ticker],
+                        "ipnl": self.__ipnl[ticker],
+                        "tpnl": self.__tpnl[ticker],
+                        "cpnl": self.__cpnl[ticker],
+                        "signal": -data.signal[0],
+                        "refvol": data.volatility[0],
+                        "target": -target,
+                        "texpo": texpo,
+                    }
+                )
 
     def __cancel_order(self, order: Order):
         if order.status == _STATUS["WAIT"]:
