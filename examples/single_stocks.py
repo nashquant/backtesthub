@@ -34,6 +34,13 @@ asset = "IB5M11"
 ohlc = ["open", "high", "low", "close"]
 ohlcr = ["open", "high", "low", "close", "returns"]
 
+config = {
+    "factor": factor,
+    "market": market,
+    "asset": asset,
+    "base": base,
+}
+
 ############################################
 
 
@@ -81,9 +88,7 @@ backtest = Backtest(
     strategy=Riskpar_BuyNHold,
     pipeline=Single,
     calendar=calendar,
-    factor=factor,
-    market=market,
-    asset=asset,
+    **config
 )
 
 engine = create_engine(
@@ -147,17 +152,5 @@ res = backtest.run()
 strat_meta = res["meta"].iloc[0,:]
 df, rec = res["quotas"], res["records"]
 
-pd.options.display.float_format = "{:,.2f}".format
-
-df["volatility"] = df.volatility * 100
-df["drawdown"] = df.drawdown * 100
-
-print("\n" + str(res))
-
-cols = [
-    "sharpe",
-    "volatility",
-    "drawdown",
-]
-
-print(df[cols].mean())
+print("\n" + str(strat_meta))
+print("\n" + str(df))

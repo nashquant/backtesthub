@@ -39,6 +39,8 @@ config = {
     "market": market,
     "asset": asset,
     "hedge": hedge,
+    "base": base,
+    "hbase": hbase,
 }
 
 ##########################################################
@@ -251,20 +253,9 @@ res = backtest.run()
 ##########################################################
 ################### RESULTS MANAGEMENT ###################
 
+
 strat_meta = res["meta"].iloc[0,:]
 df, rec = res["quotas"], res["records"]
 
-pd.options.display.float_format = "{:,.2f}".format
-
-df["volatility"] = df.volatility * 100
-df["drawdown"] = df.drawdown * 100
-
-print("\n" + str(res))
-
-cols = [
-    "sharpe",
-    "volatility",
-    "drawdown",
-]
-
-print(df[cols].mean())
+print("\n" + str(strat_meta))
+print("\n" + str(df))

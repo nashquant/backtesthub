@@ -79,7 +79,7 @@ def adjust_stocks(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def rate2price(
-    data: Asset,
+    data: pd.DataFrame,
     maturity: date,
     holidays: Sequence[date] = [],
     contract_size: float = float("10e5"),
@@ -95,14 +95,16 @@ def rate2price(
 
     """
 
-    df = data.df
-    schema = data.schema
-    calendar = BR(years=[y for y in range(1990, 2050)])
+    schema = ["open", "high", "low", "close"]
 
-    pu = (1 + df.divide(100)).pow(1 / 252)
-    pu["days"] = [t.date() for t in pu.index]
+    if not holidays:
+        calendar = BR(years=[y for y in range(1990, 2100)])
+        holidays = tuple(calendar.keys())
 
-    pu["days"] = pu["days"].apply(
+    pu = (1 + data.divide(100)).pow(1 / 252)
+    pu['date'] = pu.index
+
+    pu["net_days"] = pu.date.apply(
         lambda dt: networkdays(
             dt,
             maturity,
@@ -110,12 +112,12 @@ def rate2price(
         )
     )
 
-    pu["mult"] = contract_size
+    pu["size"] = contract_size
 
     for col in schema:
-        pu[col] = pu["mult"].div(pu[col].pow(pu["days"] + 1))
+        pu[col] = pu["size"].div(pu[col].pow(pu["net_days"] + 1))
 
-    return pu[schema]
+    return pu.rename(columns={"high":"low", "low": "high"})[schema]
 
 
 def fill_OHLC(df: pd.DataFrame) -> pd.DataFrame:

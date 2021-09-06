@@ -109,7 +109,8 @@ class Broker:
                 },
             )
 
-    def close(self, ticker: str):
+    def close(self, data: Asset):
+        ticker = data.ticker
         if not ticker in self.__positions:
             return
         pos = self.__positions.get(ticker)

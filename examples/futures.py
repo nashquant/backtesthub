@@ -2,7 +2,6 @@
 
 import os, sys
 import pandas as pd
-from collections import defaultdict
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 
@@ -33,6 +32,13 @@ factor = "TREND"
 market = "FXBR"
 asset = "DOL"
 ohlc = ["open", "high", "low", "close"]
+
+config = {
+    "factor": factor,
+    "market": market,
+    "asset": asset,
+    "base": base,
+}
 
 ############################################
 
@@ -72,8 +78,6 @@ class Trend_SMACross(Strategy):
                 ),
             )
 
-
-
 calendar = Calendar(
     start=_DEFAULT_SDATE,
     end=_DEFAULT_EDATE,
@@ -84,9 +88,7 @@ backtest = Backtest(
     strategy=Trend_SMACross,
     pipeline=Rolling,
     calendar=calendar,
-    factor=factor,
-    market=market,
-    asset=asset,
+    **config
 )
 
 engine = create_engine(
@@ -169,17 +171,5 @@ res = backtest.run()
 strat_meta = res["meta"].iloc[0,:]
 df, rec = res["quotas"], res["records"]
 
-pd.options.display.float_format = "{:,.2f}".format
-
-df["volatility"] = df.volatility * 100
-df["drawdown"] = df.drawdown * 100
-
-print("\n" + str(res))
-
-cols = [
-    "sharpe",
-    "volatility",
-    "drawdown",
-]
-
-print(df[cols].mean())
+print("\n" + str(strat_meta))
+print("\n" + str(df))

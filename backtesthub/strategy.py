@@ -127,6 +127,7 @@ class Strategy(metaclass=ABCMeta):
         signals/volatility/indicators using a
         `Base` data, and transfer the results
         to one or multiple other `Assets` data.
+
         """
         default = ["signal", "volatility"]
 
@@ -194,6 +195,12 @@ class Strategy(metaclass=ABCMeta):
             print(f"Data Warn!, {data} is incomplete !!")
             return 0
 
+        if not hasattr(self, "universe"):
+            self.universe = self.get_universe()
+        if not self.universe:
+            print(f"Pipe Warn!, universe is null !!")
+            return 0
+
         if method == _METHOD["EWMA"]:
             vol_target = _DEFAULT_VOLATILITY
             vol_asset = data.volatility[0]
@@ -205,7 +212,7 @@ class Strategy(metaclass=ABCMeta):
         elif method == _METHOD["EXPO"]:
             assert texpo is not None
 
-        size = signal * texpo * equity / price
+        size = signal * texpo * equity / price / len(self.universe)
 
         if size > 0:
             size = min_size * math.floor(size / min_size)
@@ -300,6 +307,9 @@ class Strategy(metaclass=ABCMeta):
 
     def get_universe(self) -> Sequence[Asset]:
         return self.__pipeline.universe
+
+    def get_chain(self) -> Sequence[Asset]:
+        return self.__pipeline.chain
     
     def get_expo(self) -> Number:
         return self.__broker.get_expo()

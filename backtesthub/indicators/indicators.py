@@ -42,6 +42,21 @@ def SMACross(
 
     return np.sign(sma1 - sma2)
 
+def RevSMACross(
+    data: Union[Base, Asset],
+    p1: int,
+    p2: int,
+    *args,
+) -> pd.Series:
+    """
+    `Reversed Simple Moving Average (SMA) Cross`
+    """
+
+    sma1 = pd.Series(data.close).rolling(p1).mean()
+    sma2 = pd.Series(data.close).rolling(p2).mean()
+
+    return np.sign(sma2 - sma1)
+
 
 def EMACross(
     data: Union[Base, Asset],

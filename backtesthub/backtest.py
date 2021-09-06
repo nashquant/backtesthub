@@ -78,6 +78,8 @@ class Backtest:
         self.__market: str = kwargs.get("market")
         self.__asset: str = kwargs.get("asset")
         self.__hedge: str = kwargs.get("hedge")
+        self.__base: str = kwargs.get("base")
+        self.__hbase: str = kwargs.get("hbase")
         self.__vertices: List[int] = kwargs.get("vertices")
 
         self.__main: Line = Line(self.__index)
@@ -272,6 +274,8 @@ class Backtest:
             "market": self.__market,
             "asset": self.__asset,
             "hedge": self.__hedge,
+            "base": self.__base,
+            "hbase": self.__hbase,
             "vertices": self.__vertices,
             "model": self.__strategy.__class__.__name__,
             "params": dict(self.__strategy.get_params()),
@@ -290,7 +294,6 @@ class Backtest:
                     "sdate": self.__firstdate.isoformat(),
                     "edate": self.__lastdate.isoformat(),
                     "updtime": datetime.now().isoformat(),
-                    "bases": list(self.__bases.keys()),
                     "sizing": _DEFAULT_SIZING,
                     "thresh": _DEFAULT_THRESH,
                     "vparam": _DEFAULT_VPARAM,
