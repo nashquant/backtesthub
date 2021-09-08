@@ -63,6 +63,10 @@ class Calendar:
     @property
     def index(self) -> Sequence[date]:
         return tuple(self.__index.date)
+    
+    @property
+    def holidays(self) -> Sequence[date]:
+        return tuple(self.__holidays)
         
 
 

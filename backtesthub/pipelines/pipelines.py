@@ -19,6 +19,7 @@ class Single(Pipeline):
 class Rolling(Pipeline):
     def init(self):
         self.build_chain(), self.apply_roll()
+        self.universe = []
 
     def next(self) -> Sequence[Asset]:
 
@@ -88,57 +89,88 @@ class Ranking(Pipeline):
 
     def next(self) -> Sequence[Asset]:
 
-        if self.date > self.get_date(lag=1).weekday():
+        if self.date.weekday() > self.get_date(lag=1).weekday():
 
             self.actives = {
                 asset.ticker: asset
                 for asset in self.assets.values()
-                if asset.inception <= date
-                and asset.maturity >= date
+                if asset.inception <= self.date
+                and asset.maturity >= self.date
                 and asset.liquidity[0] > self._DEFAULT_LIQTHRESH
                 and asset.volatility[0] < self._DEFAULT_STKMAXVOL
                 and asset.volatility[0] > self._DEFAULT_STKMINVOL
             }
 
-            self.liquid = dict(
-                sorted(
-                    [
-                        (asset.ticker, asset.liquidity[0])
-                        for asset in self.actives.values()
-                        if asset.liquidity[0] and not np.isnan(asset.liquidity[0])
-                    ],
-                    key=lambda x: x[1],
-                    reverse=True,
-                )
+            self.rank = sorted(
+                [
+                    (asset.ticker, asset.indicator[0])
+                    for asset in self.actives.values()
+                    if not np.isnan(asset.indicator[0])
+                ],
+                key=lambda x: x[1],
             )
 
-            self.rank = dict(
-                sorted(
-                    [
-                        (asset.ticker, asset.indicator[0])
-                        for asset in self.liquid.values()
-                        if asset.indicator[0] and not np.isnan(asset.indicator[0])
-                    ],
-                    key=lambda x: x[1],
-                    reverse=True,
-                )
-            )
+            self.universe, names = [], []
+            tmp = [x[0] for x in self.rank]
 
-            univ, names = list(), list()
-
-            if not self.rank:
-                return univ
-            if not self.params.n:
-                return univ
-
-            while len(univ) < self.n and self.rank:
-
-                ticker = self.rank.pop()
+            while len(self.universe) < self.params["n"] and tmp:
+                ticker = tmp.pop()
                 name = ticker[:4]
                 self.tk = ticker
 
                 if name not in names:
-                    univ.append(ticker)
                     names.append(name)
+                    self.universe.append(self.assets[ticker])
+
+        return self.universe
+
+
+class VA_Ranking(Pipeline):
+
+    from ..utils.config import (
+        _DEFAULT_STKMINVOL,
+        _DEFAULT_STKMAXVOL,
+        _DEFAULT_LIQTHRESH,
+    )
+
+    params = {"n": 30}
+
+    def init(self):
+        self.universe = []
+
+    def next(self) -> Sequence[Asset]:
+
+        if self.date.weekday() > self.get_date(lag=1).weekday():
+
+            self.actives = {
+                asset.ticker: asset
+                for asset in self.assets.values()
+                if asset.inception <= self.date
+                and asset.maturity >= self.date
+                and asset.liquidity[0] > self._DEFAULT_LIQTHRESH
+                and asset.volatility[0] < self._DEFAULT_STKMAXVOL
+                and asset.volatility[0] > self._DEFAULT_STKMINVOL
+            }
+
+            self.rank = sorted(
+                [
+                    (asset.ticker, asset.indicator[0], asset.volatility[0])
+                    for asset in self.actives.values()
+                    if not np.isnan(asset.indicator[0])
+                ],
+                key=lambda x: x[1] / x[2],
+            )
+
+            self.universe, names = [], []
+            tmp = [x[0] for x in self.rank]
+
+            while len(self.universe) < self.params["n"] and tmp:
+                ticker = tmp.pop()
+                name = ticker[:4]
+                self.tk = ticker
+
+                if name not in names:
+                    names.append(name)
+                    self.universe.append(self.assets[ticker])
 
         return self.universe

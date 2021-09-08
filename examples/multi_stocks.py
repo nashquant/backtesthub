@@ -11,7 +11,7 @@ sys.path.append(
 )
 
 from backtesthub.indicators import *
-from backtesthub.pipelines import Ranking
+from backtesthub.pipelines import VA_Ranking
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
@@ -133,7 +133,7 @@ calendar = Calendar(
 
 backtest = Backtest(
     strategy=Trend_SMARatio,
-    pipeline=Ranking,
+    pipeline=VA_Ranking,
     calendar=calendar,
     **config,
 )

@@ -94,7 +94,7 @@ class Backtest:
 
         self.__pipeline: Pipeline = pipeline(
             main=self.__main,
-            calendar=self.__index,
+            holidays=calendar.holidays,
             broker=self.__broker,
             assets=self.__assets,
         )
@@ -283,6 +283,7 @@ class Backtest:
             "base": self.__base,
             "hbase": self.__hbase,
             "vertices": self.__vertices,
+            "pipeline": self.__pipeline.__class__.__name__,
             "model": self.__strategy.__class__.__name__,
             "params": dict(self.__strategy.get_params()),
         }
