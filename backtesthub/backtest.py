@@ -94,6 +94,7 @@ class Backtest:
 
         self.__pipeline: Pipeline = pipeline(
             main=self.__main,
+            calendar=self.__index,
             broker=self.__broker,
             assets=self.__assets,
         )
@@ -227,6 +228,11 @@ class Backtest:
         self.__broker.next()
         for data in self.datas.values():
             data.next()
+
+    def __repr__(self) -> str:
+        if not hasattr(self, "__hash"):
+            self.config_backtest()
+        return self.__hash
 
     @property
     def dt(self) -> date:

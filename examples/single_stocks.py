@@ -27,7 +27,6 @@ pd.options.mode.chained_assignment = None
 ######################### CONFIG #########################
 
 base = "IMAB5+"
-obases = ["CARRY"]
 factor = "RISKPAR"
 market = "RATESBR"
 asset = "IB5M11"

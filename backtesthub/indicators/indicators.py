@@ -42,6 +42,21 @@ def SMACross(
 
     return np.sign(sma1 - sma2)
 
+def SMARatio(
+    data: Union[Base, Asset],
+    p1: int,
+    p2: int,
+    *args,
+) -> pd.Series:
+    """
+    `Simple Moving Average (SMA) Cross`
+    """
+
+    sma1 = pd.Series(data.close).rolling(p1).mean()
+    sma2 = pd.Series(data.close).rolling(p2).mean()
+
+    return np.divide(sma1, sma2)
+
 def RevSMACross(
     data: Union[Base, Asset],
     p1: int,

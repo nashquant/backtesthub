@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-
 import os, sys
 import pandas as pd
 from sqlalchemy import create_engine
@@ -12,11 +11,11 @@ sys.path.append(
 )
 
 from backtesthub.indicators import *
-from backtesthub.pipelines import Vertice
+from backtesthub.pipelines import Ranking
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
-from backtesthub.utils.math import fill_OHLC, rate2price
+from backtesthub.utils.math import adjust_stocks
 from backtesthub.utils.config import (
     _DEFAULT_SDATE,
     _DEFAULT_EDATE,
@@ -27,60 +26,63 @@ pd.options.mode.chained_assignment = None
 
 ######################### CONFIG #########################
 
-obases = ["CARRY"]
-factor = "TREND"
-market = "RATESBR"
-asset = "DI1"
-vertices, tenor = [1, 2, 3], "F"
+factor = "ALTBETA"
+market = "STOCKSBR@MOM"
+asset = "MULTI"
+volume = "VOBZBRC"
 ohlc = ["open", "high", "low", "close"]
+ohlcr = ["open", "high", "low", "close", "returns"]
+ohlcv = ["open", "high", "low", "close", "liquidity"]
+ohlcrv = ["open", "high", "low", "close", "returns", "liquidity"]
 
 config = {
     "factor": factor,
     "market": market,
     "asset": asset,
-    "vertices": vertices,
 }
 
 ##########################################################
 ##################### STRATEGY SETUP #####################
 
-class Trend_SMACross(Strategy):
 
+class Trend_SMARatio(Strategy):
     params = {
         "p1": 10,
-        "p2": 100,
+        "p2": 200,
     }
 
     def init(self):
-        for ticker in self.assets:
+
+        for asset in self.assets:
             self.I(
-                data=self.bases[ticker],
-                func=RevSMACross,
+                data=self.assets[asset],
+                func=SMARatio,
+                name="indicator",
+                **self.params,
+            )
+
+            self.I(
+                data=self.assets[asset],
+                func=Buy_n_Hold,
                 name="signal",
                 **self.params,
             )
 
-            self.broadcast(
-                base=self.bases[ticker],
-                assets={ticker: self.assets[ticker]},
-                lines=["signal"],
-            )
-
             self.V(
-                data=self.assets[ticker],
+                data=self.assets[asset],
             )
 
     def next(self):
-        chain = self.get_chain()
-        self.universe = [chain[-v] for v in vertices]
+        univ = self.get_universe()
 
-        for asset in self.universe:
+        for asset in univ:
             self.order_target(
                 data=asset,
                 target=self.sizing(
                     data=asset,
                 ),
             )
+
 
 ##########################################################
 ##################  DATABASE OPERATIONS ##################
@@ -91,35 +93,29 @@ engine = create_engine(
     echo=False,
 )
 
+
 carry_sql = (
-    "SELECT date, open, high, low, close FROM quant.IndexesHistory "
+    "SELECT date, open, high, low, close "
+    "FROM quant.IndexesHistory "
     f"WHERE ticker = 'CARRY' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
-meta_sql = (
-    "SELECT f.ticker as ticker, c.currency as curr, c.multiplier as mult, "
-    "f.endDate as mat FROM quant.Commodities c "
-    "INNER JOIN quant.Futures f ON c.ticker = f.commodity "
-    f"WHERE c.ticker IN ('{asset}') AND f.ticker LIKE '%%{tenor}%%' "
-    f"AND f.endDate > '{_DEFAULT_SDATE}'"
-    "ORDER BY mat"
-)
-
 price_sql = (
-    "SELECT ticker, date, open, high, low, close "
-    "FROM quant.FuturesHistory f "
-    f"WHERE f.commodity = '{asset}' AND f.ticker LIKE '%%{tenor}%%' "
-    f"AND date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
+    "SELECT date, ticker, open, high, low, close, "
+    "returns, liquidity "
+    "FROM MultiStocksHistory "
+    f"WHERE date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
-meta = pd.read_sql(meta_sql, engine)
 price = pd.read_sql(price_sql, engine)
 carry = pd.read_sql(carry_sql, engine)
 
-meta.set_index("ticker", inplace=True)
 price.set_index("date", inplace=True)
 carry.set_index("date", inplace=True)
+
+meta = price.reset_index().groupby("ticker")
+min_date, max_date = meta.min()["date"], meta.max()["date"]
 
 carry = carry.pct_change()
 
@@ -136,42 +132,34 @@ calendar = Calendar(
 )
 
 backtest = Backtest(
-    strategy=Trend_SMACross,
-    pipeline=Vertice,
+    strategy=Trend_SMARatio,
+    pipeline=Ranking,
     calendar=calendar,
     **config,
 )
-
 
 backtest.add_base(
     ticker="carry",
     data=carry[ohlc],
 )
 
-for ticker, prop in meta.iterrows():
-    mask = price.ticker == ticker
-    data = price[mask]
-    data = fill_OHLC(data)
+for ticker in price.ticker.unique():
+    data = price[price.ticker == ticker]
+    data["liquidity"] = data.liquidity.ewm(alpha=0.05).mean()
 
-    commkwargs = dict(
-        multiplier=prop.mult,
-        currency=prop.curr,
-        maturity=prop.mat,
-    )
-
-    backtest.add_base(
-        ticker=ticker,
-        data=data[ohlc],
-    )
+    kwargs = {
+        "inception": min_date[ticker],
+        "maturity": max_date[ticker],
+    }
 
     backtest.add_asset(
         ticker=ticker,
-        data=rate2price(
-            data=data[ohlc],
-            maturity=prop.mat,
-        ),
-        **commkwargs,
+        data=adjust_stocks(
+            data[ohlcrv],
+        )[ohlcv],
+        **kwargs,
     )
+
 
 res = backtest.run()
 

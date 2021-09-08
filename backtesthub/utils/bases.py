@@ -13,9 +13,8 @@ from .config import (
     _DEFAULT_SLIPPAGE,
     _DEFAULT_SCOMMISSION,
     _DEFAULT_FCOMMISSION,
+    _DEFAULT_INCEPTION,
     _DEFAULT_MATURITY,
-    _DEFAULT_HEDGE,
-    _HMETHOD,
     _COMMTYPE,
     _RATESLIKE,
     _CURR,
@@ -258,9 +257,11 @@ class Asset(Base):
     `currency` asset's quotation currency. Must be among the
       currencies recognized by the algorithm.
 
-    `maturity` derivatives-only parameter. Maturity registers
-      the maturity date of the asset, necessary for operations
-      such as futures rolling.
+    `inception` registers the first trading date of the asset, 
+      necessary for operations such as stocks ranking.
+
+    `maturity` registers the maturity date of the asset, 
+      necessary for operations such as futures rolling.
     """
 
     def __init__(
@@ -283,6 +284,7 @@ class Asset(Base):
         self,
         commission: Optional[Number] = None,
         multiplier: Optional[Number] = None,
+        inception: date = _DEFAULT_INCEPTION,
         maturity: date = _DEFAULT_MATURITY,
         slippage: Number = _DEFAULT_SLIPPAGE,
         currency: str = _DEFAULT_CURRENCY,
@@ -297,6 +299,7 @@ class Asset(Base):
 
         self.__slippage = slippage
         self.__currency = currency
+        self.__inception = inception
         self.__maturity = maturity
 
         if multiplier is None:
@@ -352,6 +355,10 @@ class Asset(Base):
     @property
     def commtype(self) -> str:
         return self.__commtype
+
+    @property
+    def inception(self) -> date:
+        return self.__inception
 
     @property
     def maturity(self) -> date:

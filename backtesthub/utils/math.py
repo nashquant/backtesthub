@@ -55,8 +55,10 @@ def EWMAVolatility(
 
 
 def adjust_stocks(data: pd.DataFrame) -> pd.DataFrame:
-    data = data.sort_index(ascending=False)
+    schema = list(data.columns)
     OHLC = ["open", "high", "low", "close"]
+
+    data = data.sort_index(ascending=False)
     cumprod = (
         (1 + data.returns)
         .cumprod()
@@ -75,7 +77,7 @@ def adjust_stocks(data: pd.DataFrame) -> pd.DataFrame:
     data.drop(columns="multpl", inplace=True)
     data = data.sort_index(ascending=True)
 
-    return data[OHLC]
+    return data[schema]
 
 
 def rate2price(
@@ -95,7 +97,7 @@ def rate2price(
 
     """
 
-    schema = ["open", "high", "low", "close"]
+    schema = list(data.columns)
 
     if not holidays:
         calendar = BR(years=[y for y in range(1990, 2100)])

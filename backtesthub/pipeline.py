@@ -4,9 +4,13 @@ from datetime import date
 from operator import itemgetter
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
+from workdays import workday, networkdays
 from typing import Dict, Sequence, Union
 from .utils.bases import Line, Asset
 from .broker import Broker
+from .utils.config import (
+    _DEFAULT_LAG,
+)
 
 
 class Pipeline(metaclass=ABCMeta):
@@ -30,6 +34,7 @@ class Pipeline(metaclass=ABCMeta):
         self,
         main: Line,
         broker: Broker,
+        holidays: Sequence[date] = [],
         assets: Dict[str, Asset] = OrderedDict(),
         hedges: Dict[str, Asset] = OrderedDict(),
     ):
@@ -37,6 +42,8 @@ class Pipeline(metaclass=ABCMeta):
         self.__broker = broker
         self.__assets = assets
         self.__hedges = hedges
+        self.__holidays = holidays
+
         self.__universe = []
 
     @abstractmethod
@@ -64,6 +71,9 @@ class Pipeline(metaclass=ABCMeta):
 
         self.chain = [self.assets.get(tk) for tk in chain.keys()]
 
+    def get_date(self, lag: int = _DEFAULT_LAG) -> date:
+        return workday(self.__main[0], lag, self.__holidays)
+
     @property
     def asset(self) -> Asset:
         return tuple(self.__assets.values())[0]
@@ -87,3 +97,7 @@ class Pipeline(metaclass=ABCMeta):
     @property
     def hedges(self) -> Dict[str, Asset]:
         return self.__hedges
+
+    @property
+    def date(self) -> date:
+        return self.main[0]
