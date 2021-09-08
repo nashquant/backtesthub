@@ -110,17 +110,23 @@ class Ranking(Pipeline):
                 key=lambda x: x[1],
             )
 
-            self.universe, names = [], []
+            unv, names = [], []
             tmp = [x[0] for x in self.rank]
 
-            while len(self.universe) < self.params["n"] and tmp:
+            while len(unv) < self.params["n"] and tmp:
                 ticker = tmp.pop()
                 name = ticker[:4]
                 self.tk = ticker
 
                 if name not in names:
                     names.append(name)
-                    self.universe.append(self.assets[ticker])
+                    unv.append(self.assets[ticker])
+
+            for asset in self.universe:
+                if asset not in unv:
+                    self.broker.close(asset)
+
+            self.universe = unv.copy()
 
         return self.universe
 
@@ -161,16 +167,22 @@ class VA_Ranking(Pipeline):
                 key=lambda x: x[1] / x[2],
             )
 
-            self.universe, names = [], []
+            unv, names = [], []
             tmp = [x[0] for x in self.rank]
 
-            while len(self.universe) < self.params["n"] and tmp:
+            while len(unv) < self.params["n"] and tmp:
                 ticker = tmp.pop()
                 name = ticker[:4]
                 self.tk = ticker
 
                 if name not in names:
                     names.append(name)
-                    self.universe.append(self.assets[ticker])
+                    unv.append(self.assets[ticker])
+
+            for asset in self.universe:
+                if asset not in unv:
+                    self.broker.close(asset)
+
+            self.universe = unv.copy()
 
         return self.universe

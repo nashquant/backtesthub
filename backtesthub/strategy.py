@@ -214,6 +214,10 @@ class Strategy(metaclass=ABCMeta):
 
         size = signal * texpo * equity / price / len(self.universe)
 
+        if np.isnan(size):
+            txt=f"Error found while sizing {data}"
+            raise ValueError(txt) 
+
         if size > 0:
             size = min_size * math.floor(size / min_size)
         elif size < 0:

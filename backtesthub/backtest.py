@@ -216,6 +216,9 @@ class Backtest:
                 self.__hstrategy.next()
             self.__broker.end_of_period()
 
+            if self.__broker.cum_return < -99:
+                break
+
         return {
             "meta": self.__properties,
             "quotas": self.__broker.df,
