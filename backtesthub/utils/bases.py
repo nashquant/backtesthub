@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from datetime import date
 from numbers import Number
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Any
 
 from .checks import derive_asset
 from .config import (
@@ -36,13 +36,17 @@ class Line(np.ndarray):
 
     """
 
-    def __new__(cls, array: Sequence = ()):
+    def __new__(
+        cls,
+        array: Sequence[Any] = [],
+        buffer: int = _DEFAULT_BUFFER,
+    ):
         arr = np.asarray(array)
 
         obj = arr.view(cls)
         obj.__array = arr
         obj.__len = len(arr)
-        obj.__buffer = _DEFAULT_BUFFER
+        obj.__buffer = buffer
 
         return obj
 
@@ -70,6 +74,7 @@ class Line(np.ndarray):
     def series(self) -> pd.Series:
         idx = np.arange(len(self))
         return pd.Series(self.array, idx)
+
 
 class Data:
 
@@ -257,10 +262,10 @@ class Asset(Base):
     `currency` asset's quotation currency. Must be among the
       currencies recognized by the algorithm.
 
-    `inception` registers the first trading date of the asset, 
+    `inception` registers the first trading date of the asset,
       necessary for operations such as stocks ranking.
 
-    `maturity` registers the maturity date of the asset, 
+    `maturity` registers the maturity date of the asset,
       necessary for operations such as futures rolling.
     """
 

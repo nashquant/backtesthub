@@ -167,20 +167,20 @@ hprice_sql = (
 )
 
 price = pd.read_sql(price_sql, engine)
-b_price = pd.read_sql(base_sql, engine)
+bprice = pd.read_sql(base_sql, engine)
 carry = pd.read_sql(carry_sql, engine)
 
 price.set_index("date", inplace=True)
-b_price.set_index("date", inplace=True)
+bprice.set_index("date", inplace=True)
 carry.set_index("date", inplace=True)
 
 hmeta = pd.read_sql(hmeta_sql, engine)
 hprice = pd.read_sql(hprice_sql, engine)
-hb_price = pd.read_sql(hbase_sql, engine)
+hbprice = pd.read_sql(hbase_sql, engine)
 
 hmeta.set_index("ticker", inplace=True)
 hprice.set_index("date", inplace=True)
-hb_price.set_index("date", inplace=True)
+hbprice.set_index("date", inplace=True)
 
 carry = carry.pct_change()
 
@@ -210,7 +210,7 @@ backtest.config_hedge(
 
 backtest.add_base(
     ticker=base,
-    data=b_price[ohlc],
+    data=bprice[ohlc],
 )
 
 backtest.add_base(
@@ -220,7 +220,7 @@ backtest.add_base(
 
 backtest.add_base(
     ticker=hbase,
-    data=hb_price[ohlc],
+    data=hbprice[ohlc],
 )
 
 

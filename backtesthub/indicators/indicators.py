@@ -55,7 +55,7 @@ def SMARatio(
     sma1 = pd.Series(data.close).rolling(p1).mean()
     sma2 = pd.Series(data.close).rolling(p2).mean()
 
-    return np.divide(sma1, sma2)
+    return np.divide(sma1, sma2) - 1
 
 def RevSMACross(
     data: Union[Base, Asset],

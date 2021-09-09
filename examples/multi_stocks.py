@@ -11,7 +11,7 @@ sys.path.append(
 )
 
 from backtesthub.indicators import *
-from backtesthub.pipelines import VA_Ranking
+from backtesthub.pipelines import *
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
@@ -28,7 +28,8 @@ pd.options.mode.chained_assignment = None
 
 factor = "ALTBETA"
 market = "STOCKSBR@MOM"
-asset = "MULTI"
+hbase = "IBOV"
+asset, hedge = "MULTI", "IND"
 volume = "VOBZBRC"
 ohlc = ["open", "high", "low", "close"]
 ohlcr = ["open", "high", "low", "close", "returns"]
@@ -39,6 +40,8 @@ config = {
     "factor": factor,
     "market": market,
     "asset": asset,
+    "hedge": hedge,
+    "hbase": hbase,
 }
 
 ##########################################################
@@ -83,6 +86,43 @@ class Trend_SMARatio(Strategy):
                 ),
             )
 
+class Hedge_Beta(Strategy):
+    params = {}
+
+    def init(self):
+
+        self.I(
+            data=self.hbase,
+            func=Sell_n_Hold,
+            name="signal",
+            **self.params,
+        )
+
+        self.V(
+            data=self.hbase,
+        )
+
+        self.broadcast(
+            base=self.hbase,
+            assets=self.assets,
+            lines=["signal", "volatility"],
+        )
+
+    def next(self):
+        univ = self.get_universe()
+        expo = self.get_tbeta()
+        texpo = expo / len(univ)
+
+        for hedge in univ:
+            self.order(
+                data=hedge,
+                size=self.sizing(
+                    data=hedge,
+                    texpo=texpo,
+                    method="EXPO",
+                ),
+            )
+
 
 ##########################################################
 ##################  DATABASE OPERATIONS ##################
@@ -91,6 +131,13 @@ engine = create_engine(
     URL.create(**_DEFAULT_URL),
     pool_pre_ping=True,
     echo=False,
+)
+
+hbase_sql = (
+    "SELECT date, open, high, low, close "
+    "FROM quant.IndexesHistory "
+    f"WHERE ticker = '{hbase}' AND date between "
+    f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
 
@@ -108,9 +155,30 @@ price_sql = (
     f"WHERE date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
+hmeta_sql = (
+    "SELECT f.ticker as ticker, c.currency as curr, c.multiplier as mult, "
+    "f.endDate as mat FROM quant.Commodities c "
+    "INNER JOIN quant.Futures f ON c.ticker = f.commodity "
+    f"WHERE c.ticker IN ('{hedge}') AND f.endDate > '{_DEFAULT_SDATE}' "
+    "ORDER BY mat"
+)
+
+hprice_sql = (
+    "SELECT ticker, date, open, high, low, close "
+    "FROM quant.FuturesHistory f "
+    f"WHERE f.commodity = '{hedge}' AND "
+    f"date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
+)
+
+hbprice = pd.read_sql(hbase_sql, engine)
+hprice = pd.read_sql(hprice_sql, engine)
+hmeta = pd.read_sql(hmeta_sql, engine)
 price = pd.read_sql(price_sql, engine)
 carry = pd.read_sql(carry_sql, engine)
 
+hbprice.set_index("date", inplace=True)
+hprice.set_index("date", inplace=True)
+hmeta.set_index("ticker", inplace=True)
 price.set_index("date", inplace=True)
 carry.set_index("date", inplace=True)
 
@@ -126,7 +194,7 @@ calendar = Calendar(
     start=_DEFAULT_SDATE,
     end=min(
         _DEFAULT_EDATE,
-        max(price.index),
+        max(max_date),
     ),
     country="BR",
 )
@@ -138,10 +206,21 @@ backtest = Backtest(
     **config,
 )
 
+backtest.config_hedge(
+    pipeline=Rolling,
+    strategy=Hedge_Beta,
+)
+
 backtest.add_base(
     ticker="carry",
     data=carry[ohlc],
 )
+
+backtest.add_base(
+    ticker=hbase,
+    data=hbprice[ohlc],
+)
+
 
 for ticker in price.ticker.unique():
     data = price[price.ticker == ticker]
@@ -158,6 +237,22 @@ for ticker in price.ticker.unique():
             data[ohlcrv],
         )[ohlcv],
         **kwargs,
+    )
+
+for hticker, hprop in hmeta.iterrows():
+    mask = hprice.ticker == hticker
+    data = hprice[mask]
+
+    commkwargs = dict(
+        multiplier=hprop.mult,
+        currency=hprop.curr,
+        maturity=hprop.mat,
+    )
+
+    backtest.add_hedge(
+        ticker=hticker,
+        data=data[ohlc],
+        **commkwargs,
     )
 
 

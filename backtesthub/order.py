@@ -29,10 +29,6 @@ class Order:
             msg = "Order `data` must be an Asset!"
             raise TypeError(msg)
 
-        if not self.__isbuy and not self.__issell:
-            msg = "Order `size` must be an non-zero number"
-            raise ValueError(msg)
-
         self.__ticker: str = data.ticker
         self.__issue_date: date = data.date
         self.__exec_date: Optional[date] = None

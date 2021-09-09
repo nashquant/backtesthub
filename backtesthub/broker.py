@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Sequence, Union
 from .order import Order
 from .position import Position
 
-from .utils.bases import Base, Asset
+from .utils.bases import Line, Base, Asset
 from .utils.config import (
     _DEFAULT_CURRENCY,
     _DEFAULT_BUFFER,
@@ -34,6 +34,7 @@ class Broker:
         self.__length = len(index)
         self.__buffer = _DEFAULT_BUFFER
         self.__carry: float = _DEFAULT_CRATE
+        self.__market: Optional[float] = None
         self.__positions: Dict[str, Position] = {}
         self.__orders: Dict[str, Order] = {}
         self.__cancels: List[Order] = []
@@ -58,6 +59,13 @@ class Broker:
 
         self.__carry = carry
 
+    def add_market(self, market: Base):
+        if not isinstance(market, Base):
+            msg = "Wrong input type for carry"
+            raise TypeError(msg)
+
+        self.__market = market
+
     def add_curr(self, curr: Base):
         if not isinstance(curr, Base):
             msg = "Wrong input type for carry"
@@ -80,6 +88,10 @@ class Broker:
         - Updates Open Orders Dictionary.
 
         """
+
+        if size == 0 or not isinstance(size, Number):
+            return
+
         ticker = data.ticker
         pending = self.__orders.get(ticker)
 
@@ -429,6 +441,93 @@ class Broker:
             texpo+=target * factor * data.close[0] / self.curr_equity
         
         return texpo
+
+    def get_beta(self) -> Number:
+        """
+        Get Current Beta w/ respect to market
+        """
+        beta =  0
+
+        if self.__market is None:
+            txt="Broker Arg `Market` not specified"
+            raise ValueError(txt)
+
+        for pos in self.position_stack:
+            data, ticker = pos.data, pos.ticker
+            size, factor = pos.size, data.multiplier
+
+            curr = data.currency
+            if not curr == _DEFAULT_CURRENCY:
+                pair = f"{curr}{_DEFAULT_CURRENCY}"
+                factor *= self.__currs[pair].close[0]
+
+            if "beta" not in data.lines:
+                df = pd.DataFrame.from_records(
+                    {
+                        "close": data.close.array,
+                        "mclose": data.mclose.array,
+                        "vol": data.volatility.array,
+                        "mvol": self.__market.volatility.array,
+                    },
+                    index = data.index.array
+                )
+                df['ret'] = df.close.pct_change()
+                df['mret'] = df.mclose.pct_change() 
+                df['corrl'] = df.ret.ewm(alpha=0.05).corr(df.mret)
+                df['beta'] = df.corrl * df.vol / df.mvol
+
+                data.add_line("beta", Line(df.beta, buffer = data.buffer))
+
+            beta+= data.beta[0] * size * factor * data.close[0] / self.curr_equity
+
+        return beta
+
+    def get_tbeta(self) -> Number:
+        """
+        Get Target Beta w/ respect to market
+        """
+        beta =  0
+
+        if self.__market is None:
+            txt="Broker Arg `Market` not specified"
+            raise ValueError(txt)
+
+        for pos in self.position_stack:
+            data, ticker = pos.data, pos.ticker
+            size, factor = pos.size, data.multiplier
+
+            curr = data.currency
+            if not curr == _DEFAULT_CURRENCY:
+                pair = f"{curr}{_DEFAULT_CURRENCY}"
+                factor *= self.__currs[pair].close[0]
+
+            order = self.__orders.get(ticker)
+
+            if order:
+                target = size + order.size
+            else:
+                target = size
+
+            if "beta" not in data.lines:
+                df = pd.DataFrame.from_records(
+                    {
+                        "close": data.close.array,
+                        "mclose": self.__market.close.array,
+                        "vol": data.volatility.array,
+                        "mvol": self.__market.volatility.array,
+                    },
+                    index = data.index.array
+                )
+                df['ret'] = df.close.pct_change()
+                df['mret'] = df.mclose.pct_change() 
+                df['corrl'] = df.ret.ewm(alpha=0.05).corr(df.mret)
+                df['beta'] = df.corrl * df.vol / df.mvol
+
+                data.add_line("beta", Line(df.beta, buffer = data.buffer))
+
+            beta+= data.beta[0] * target * factor * data.close[0] / self.curr_equity
+
+        return beta
 
     @property
     def date(self) -> date:

@@ -32,6 +32,8 @@ _DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "0.2"))
 _DEFAULT_VPARAM: float = float(os.getenv("DEF_VPARAM", "0.05"))
 _DEFAULT_LAG: int = int(os.getenv("DEF_LAG", "4"))
 _DEFAULT_ECHO: bool = bool(os.getenv("DEF_ECHO", "True"))
+_DEFAULT_MAX_LOSS: float = float(os.getenv("DEF_MAX_LOSS", "-99"))
+_DEFAULT_MARKET: str = os.getenv("DEF_MARKET", "IBOV")
 _DEFAULT_URL = {
     "drivername": str(os.getenv("DB_DRIVER", "")),
     "username": str(os.getenv("DB_USER", "")),

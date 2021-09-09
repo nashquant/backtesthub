@@ -27,10 +27,12 @@ from .utils.config import (
     _DEFAULT_SIZING,
     _DEFAULT_THRESH,
     _DEFAULT_VPARAM,
+    _DEFAULT_MAX_LOSS,
     _DEFAULT_VOLATILITY,
     _DEFAULT_CARRY,
     _DEFAULT_PAIRS,
     _DEFAULT_ECHO,
+    _DEFAULT_MARKET,
 )
 
 
@@ -158,6 +160,8 @@ class Backtest:
             self.__broker.add_curr(base)
         if ticker.upper() == _DEFAULT_CARRY:
             self.__broker.add_carry(base)
+        if ticker.upper() == _DEFAULT_MARKET:
+            self.__broker.add_market(base)
 
     def add_asset(
         self,
@@ -216,7 +220,7 @@ class Backtest:
                 self.__hstrategy.next()
             self.__broker.end_of_period()
 
-            if self.__broker.cum_return < -99:
+            if self.__broker.cum_return < _DEFAULT_MAX_LOSS:
                 break
 
         return {
@@ -289,6 +293,8 @@ class Backtest:
             "pipeline": self.__pipeline.__class__.__name__,
             "model": self.__strategy.__class__.__name__,
             "params": dict(self.__strategy.get_params()),
+            "budget": _DEFAULT_VOLATILITY,
+            "buffer": _DEFAULT_BUFFER,
         }
 
         self.__uid = uuid3(
@@ -307,8 +313,6 @@ class Backtest:
                     "sizing": _DEFAULT_SIZING,
                     "thresh": _DEFAULT_THRESH,
                     "vparam": _DEFAULT_VPARAM,
-                    "budget": _DEFAULT_VOLATILITY,
-                    "buffer": _DEFAULT_BUFFER,
                     "bookname": self.bookname,
                 }
             ]

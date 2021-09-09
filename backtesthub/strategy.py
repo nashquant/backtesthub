@@ -321,6 +321,12 @@ class Strategy(metaclass=ABCMeta):
     def get_texpo(self) -> Number:
         return self.__broker.get_texpo()
 
+    def get_beta(self) -> Number:
+        return self.__broker.get_beta()
+    
+    def get_tbeta(self) -> Number:
+        return self.__broker.get_tbeta()
+
     @property
     def base(self) -> Base:
         return tuple(self.__bases.values())[0]
