@@ -28,8 +28,8 @@ class Position:
     def __repr__(self):
 
         return (
-            f"{self.__class__.__name__}(Ticker: {self.__data.ticker}, "
-            f"Size: {self.__size}, Signal: {self.__data.signal[0]})"
+            f"{self.__class__.__name__}<Ticker: {self.__data.ticker}, "
+            f"Size: {self.__size}, Signal: {self.__data.signal[0]}>"
         )
 
     def check_stop(self):
