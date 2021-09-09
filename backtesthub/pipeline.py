@@ -71,6 +71,9 @@ class Pipeline(metaclass=ABCMeta):
 
         self.chain = [self.assets.get(tk) for tk in chain.keys()]
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(Universe: {self.universe})"
+
     def get_date(self, lag: int = _DEFAULT_LAG) -> date:
         return workday(self.__main[0], lag, self.__holidays)
 

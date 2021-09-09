@@ -46,7 +46,7 @@ _MIN_VOL = {
     "ES": 0.12,
     "IND": 0.15,
     "DOL": 0.10,
-}
+} ## ELIMINATE: SUBSTITUTE TO ROLLING QUANTILE ##
 
 _MIN_VOL.update(
     eval(
