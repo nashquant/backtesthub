@@ -306,6 +306,9 @@ class Strategy(metaclass=ABCMeta):
             limit=limit,
         )
 
+    def __repr__(self):
+        return f"{self.__class__.__name__} @ {dict(self.__params)}"
+
     def get_params(self) -> Dict[str, Number]:
         return self.__params
 
