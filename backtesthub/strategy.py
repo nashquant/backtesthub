@@ -23,6 +23,15 @@ from .utils.config import (
 
 
 class Strategy(metaclass=ABCMeta):
+
+    """
+    `Strategy Class`
+
+    Explanation... 
+    
+    """
+
+
     def __init__(
         self,
         broker: Broker,

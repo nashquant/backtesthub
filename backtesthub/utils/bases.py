@@ -24,7 +24,7 @@ from .config import (
 class Line(np.ndarray):
 
     """
-    Class Line
+    `Line Class`
 
     Line is a ndarray subclass, modified for the purpose 
     of providing synchonized access to data array entries,
@@ -105,7 +105,7 @@ class Line(np.ndarray):
 class Data:
 
     """
-    Class Data
+    `Data Class`
 
     A data array accessor. Even though the input is a `pd.DataFrame`,
     it gets transformed into a series of Lines (`np.ndarray` subclass)
@@ -234,7 +234,7 @@ class Data:
 class Base(Data):
 
     """
-    Class Base 
+    `Base Class` 
 
     Base extends `Data` to create an unique asset class
     that is intended to hold prices data that are not
@@ -293,7 +293,7 @@ class Base(Data):
 class Asset(Base):
 
     """
-    Class Asset
+    `Asset Class`
 
     Asset Extends `Base` including necessary features to
     classify (stocklike or futureslike) and calculate PnL 
