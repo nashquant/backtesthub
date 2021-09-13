@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 import numpy as np
-from typing import Sequence
+from typing import Optional, Sequence
 from datetime import date
 
 from ..pipeline import Pipeline
@@ -9,6 +9,18 @@ from ..utils.bases import Asset
 
 
 class Single(Pipeline):
+    """
+    `Single Pipeline`
+
+    Extends from the Base Pipeline Class.
+
+    This single pipeline is a "degenerate case", i.e., it basically 
+    just returns the universe as equals to the  full assets set . It's 
+    named "single" because it is most useful when backtesting a single 
+    asset strategy.
+    
+    """
+
     def init(self):
         self.universe = tuple(self.assets.values())
 
@@ -17,6 +29,28 @@ class Single(Pipeline):
 
 
 class Rolling(Pipeline):
+    """
+    `Rolling Pipeline`
+
+    Extends from the Base Pipeline Class.
+
+    Rolling pipeline is designed to make front month futures rolling, 
+    i.e., it assumes the closest to maturity contract will always be
+    the active - and the one we're interested in trading. 
+    
+    It returns as the universe a [list of] single asset, and does the 
+    job of monitoring the rolling date, in order to update the universe
+    and close positions in older contracts. 
+    
+    It is expected to be used only for futures derivatives whose
+    liquidity is concentrated in the front contract.
+
+    NOTE: Rolling is triggered a number "LAG" of days prior maturity.
+    Users can configure the value of "LAG" by changing the value of
+    "DEF_LAG" environment variable.
+
+    
+    """
     def init(self):
         self.build_chain(), self.apply_roll()
         self.universe = []
@@ -42,6 +76,31 @@ class Rolling(Pipeline):
 class Vertice(Pipeline):
 
     from ..utils.config import _DEFAULT_RATESDAY, _DEFAULT_RATESMONTH
+
+    """
+    `Vertice Pipeline`
+
+    Extends from the Base Pipeline Class.
+
+    Vertice pipeline is designed to make vertice-style futures trading, 
+    i.e., it assumes that the user is interested in trade specific 
+    tenors of the future curve, specially useful for rates trading. 
+    
+    It doesn't formally returns the tradeable universe, but instead
+    returns the chain of active assets (ones that have not expired), 
+    and let the "strategy" perform the "vertice/tenor" picking rule. 
+    
+    It is useful to feed the backtest engine only with tradeable
+    tenors. For example, for the Brazilian DI futures, we're mostly
+    interested in trading january tenors when it comes to the long
+    end of the curve. Thus, we should be only feeding the "F" [jan]
+    contracts to the engine - See ~/examples/rates.py.
+
+    NOTE: Rolling is triggered a number "LAG" of days prior maturity.
+    Users can configure the value of "LAG" by changing the value of
+    "DEF_LAG" environment variable.
+    
+    """
 
     def init(self):
         self.build_chain()
@@ -80,12 +139,64 @@ class Ranking(Pipeline):
         _DEFAULT_STKMINVOL,
         _DEFAULT_STKMAXVOL,
         _DEFAULT_LIQTHRESH,
+        _DEFAULT_N
     )
 
-    params = {"n": 30}
+    """
+    `Ranking Pipeline`
 
-    def init(self):
+    Extends from the Base Pipeline Class.
+
+    Ranking pipeline is designed to make factor-style stock picking, 
+    i.e., it assumes that the user is interested in rank stocks by 
+    some common factor, and select a subset of the best ranked ones
+    to buy [and eventually a subset of the worst ranked to short].
+
+    This pipeline has two default screening stages:
+
+    1) Eliminate stocks that are not tradable, either due to practical
+    impediments, such as de-listing / target M&A (maturity date needs to 
+    be assigned) or the case where the stock was not listed yet (but will 
+    be available later - inception date needs to be assigned), or because 
+    their volatility at the time is too low (lower than "_DEF_STKMINVOL") 
+    or too high (higher than "_DEF_STKMAXVOL")
+
+    2) After ranking stocks by their data.indicator[0] values, the algo
+    make sure it is not making duplicate positions, for example, trading 
+    same company ordinary/preferential stocks - for that we assume the
+    ticker to be well behaved enough to represent two stocks of the same
+    company as having the same initial four letters, as it is common in
+    the brazilian market (if this hypothesis does not hold, changes need
+    to be implemented in this function!) - e.g. PETR3 and PETR4 will be
+    considered stocks belonging to the same company, thus just the best 
+    ranked one will be select.  
+    
+    After this screening stage, this pipeline is designed to select a
+    number ("_DEF_N") of the best ranked stocks, which by default is
+    set to 30. The selection of a fixed subset is consistent with the
+    idea of reduced trading activity (compared to quantile selection
+    which leads to frequent rebalances to maintain risk parity), while 
+    maintaining a good level of diversification, but not too much 
+    (30 is a reasonable level).
+    
+    We encourage users to feed the most complete set of stocks possible 
+    (considering survivorship bias), as well as configure each stock
+    inception and maturity dates. See ~/examples/multi_stocks.py.
+
+    NOTE: We assume that this pipeline results' are sufficient for
+    the "long" part of the portfolio, and we assume that stocks fed 
+    belong to the same timezone/exchange, in order to avoid complications 
+    regarding holidays and alike. For the "short" part, we encourage users
+    to make a separate hedge-pipeline, as it was performed in the example.
+
+    
+    """
+
+    def init(self, n: Optional[int] = None):
         self.universe = []
+        self.n = n
+        if self.n is None:
+            self.n = self._DEFAULT_N
 
     def next(self) -> Sequence[Asset]:
 
@@ -113,7 +224,7 @@ class Ranking(Pipeline):
             unv, names = [], []
             tmp = [x[0] for x in self.rank]
 
-            while len(unv) < self.params["n"] and tmp:
+            while len(unv) < self.n and tmp:
                 ticker = tmp.pop()
                 name = ticker[:4]
                 self.tk = ticker
@@ -137,12 +248,32 @@ class VA_Ranking(Pipeline):
         _DEFAULT_STKMINVOL,
         _DEFAULT_STKMAXVOL,
         _DEFAULT_LIQTHRESH,
+        _DEFAULT_N,
     )
 
-    params = {"n": 30}
+    """
 
-    def init(self):
+    `Ranking Pipeline`
+
+    Extends from the Base Pipeline Class.
+
+    Very similar to Ranking Pipeline, with the slight modification
+    to introduce the volatility adjusted indicator ranking.
+
+    E.g. Instead of ranking by the ratio of ind = SMA(n1)/SMA(n2), 
+    we'll perform a composite ranking, ind' = ind/volatility.
+
+    This is useful to a plenty of cases, such as momentum ranking,
+    where both past returns and past vol-adjusted returns (some 
+    metric analogous to sharpe) could be employed as a signal.  
+
+    """
+
+    def init(self, n: Optional[int] = None):
         self.universe = []
+        self.n = n
+        if self.n is None:
+            self.n = self._DEFAULT_N
 
     def next(self) -> Sequence[Asset]:
 
@@ -170,7 +301,7 @@ class VA_Ranking(Pipeline):
             unv, names = [], []
             tmp = [x[0] for x in self.rank]
 
-            while len(unv) < self.params["n"] and tmp:
+            while len(unv) < self.n and tmp:
                 ticker = tmp.pop()
                 name = ticker[:4]
                 self.tk = ticker

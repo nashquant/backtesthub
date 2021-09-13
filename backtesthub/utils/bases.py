@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from datetime import date
 from numbers import Number
-from typing import Optional, Sequence, Any
+from typing import Optional, Sequence, Union
 
 from .checks import derive_asset
 from .config import (
@@ -32,10 +32,10 @@ class Line(np.ndarray):
     at some default value and gets incremented by the 
     simulation/backtest main event loop. 
     
-    E.g. for daily signals, reasonable values for initial buffer 
-    are ~200, because most simulations need at least 200 data-days 
-    points to be able to calculate metrics such as volatility, 
-    beta, SMA(200), etc.
+    E.g. for daily signals, reasonable values for initial 
+    buffer are ~200, because most simulations need at least 
+    200 data-days points to be able to calculate metrics 
+    such as volatility, beta, SMA(200), etc.
 
     This way users can reference the current state of the
     line by calling data.line_name[0], and previous values
@@ -45,26 +45,33 @@ class Line(np.ndarray):
     Big thanks to backtrader, which inspired this way
     of using buffers to organize/synchronize data objects.
 
-    To get a better sense about the implementation details, refer to:
-
-    * https://numpy.org/doc/stable/user/basics.subclassing.html
-    * https://github.com/mementum/backtrader/blob/master/backtrader/linebuffer.py
-
-
     Parameters
     -----------
 
-    `array`: ....
+    `array`: 
+       Input data, any sequence of single type array-like, 
+       consistent with numpy.asarray() method. It expects as 
+       input any sequences such as lists/tuples, ndarrays and 
+       pd.Series.
 
-    `buffer`: ....
-
-    
+    `buffer`:
+       Buffer, controls the current period reference of lines. 
+       Allows one to access the current state by referencing 
+       data.line[0], and previous/forward values as data.line[n] 
+       where n is any integer representing # of days forward 
+       (previous, if negative). It is set to start at "_DEF_BUFFER" 
+       environment variable, which by default is set to 200.
+       
+    NOTE: method "self.next()" controls the current state of buffer, 
+    and is directly controlled by the event loop at backtesthub.backtest 
+    main function, in order to maintain synchonism at all lines held by 
+    every data object.
 
     """
 
     def __new__(
         cls,
-        array: Sequence[Any],
+        array: Union[Sequence, pd.Series, np.ndarray],
         buffer: int = _DEFAULT_BUFFER,
     ):
         arr = np.asarray(array)
@@ -124,9 +131,23 @@ class Data:
     Parameters
     -----------
 
-    `data`: ....
+    `data`: 
+       Data Input, it could be virtually any time-series pd.DataFrame
+       (i.e. pd.DataFrame whose index is a date/datetime). However, users 
+       are encouraged to feed only "financial data" | "signal" dataframes,
+       preferably OHLC schemed (["open", "high", "low", "close"]), though  
+       single column (["close"]) is acceptable either.    
 
-    `index`: ....
+    `index`: 
+       Index, is a collection of dates that defines the event loop 
+       sequence. It is generally built by a calendar object, which 
+       takes into consideration features such as region, holidays, etc.  
+       It is used to  reindex the `data` input, in order to have fully 
+       synchronizable data objects.
+
+    NOTE: Refer to ~/backtesthub/utils.math.py to get a set of data 
+    cleansing utils functions (e.g. func fill_OHLC takes an OHLC 
+    schemed dataframe an fill np.nan values with appropriate data)
 
     """
 
@@ -230,46 +251,40 @@ class Data:
         lines = self.__lines.keys()
         return tuple(l for l in lines if not l.startswith("__"))
 
-
 class Base(Data):
 
     """
     `Base Class` 
 
-    Base extends `Data` to create an unique asset class
-    that is intended to hold prices data that are not
-    supposed to be used for trading purposes, but rather,
-    data structures that are used to:
+    Base extends `Data` to create an unique asset class that is intended 
+    to hold prices data that are not supposed to be used for trading 
+    purposes, but rather, data structures that are used to:
     
     1) Signal generation, 
     2) Currency exchange, 
     3) Volatility Estimation,
-    4) Anything that does not get 
-       traded nor is supposed to 
-       generate PnL.
+    4) Anything that does not get traded nor 
+       is supposed to generate PnL.
 
-    e.g. When sizing a contract for USDBRL Futures, we
-    might be tempted to use this contract own data to
-    generate a reasonable volatility estimation or to
-    generate trading signals for our system, for example. 
+    For example, when sizing a contract for USDBRL Futures, we might be 
+    tempted to use this contract own data to generate a reasonable volatility 
+    estimation or to generate trading signals for our system, for example. 
     
-    However, this might lead to severe inconsistencies, 
-    because USDBRL futures only have reliable price data 
-    for the period in which the contract is being "actively" 
-    trading, which is the last month preceeding maturity. 
-    
-    Therefore, we would be better off using some other proxy, 
-    such as the USDBRL spot price, to derive those metrics.     
+    However, this might lead to severe inconsistencies, because USDBRL futures 
+    only have reliable price data for the period in which the contract is being 
+    "actively" trading, which is the last month preceeding maturity. Therefore, 
+    we would be better off using some other proxy, such as the USDBRL spot price, 
+    to derive those metrics.     
 
-    Note: The name base might be confusing... Please note
-    that the name base is different from the general term
-    used in object oriented programming "Base Class".
+    Note: The name base might be confusing... Please note that the name base is 
+    different from the general term used in object oriented programming "Base Class".
 
      Parameters
     -----------
 
-    `ticker`: string used .
-
+    `ticker`: 
+       Financial | Signal data "name", identifies univocally the data object. 
+       Usually uses the financial asset own ticker.
 
     """
 
@@ -289,7 +304,6 @@ class Base(Data):
     def ticker(self) -> str:
         return self.__ticker
 
-
 class Asset(Base):
 
     """
@@ -302,26 +316,33 @@ class Asset(Base):
     Parameters
     -----------
 
-    `multiplier`: contract base price multiplier, whenever this
-      is declared, the data-type is assumed to be futures-like.
+    `multiplier`: 
+       contract base price multiplier, whenever this is declared, 
+       the data-type is assumed to be futures-like.
 
-    `commission`: broker's commission per trade, may change
-      depending on the commission type.
+    `commission`: 
+       broker's commission per trade, may change depending on the 
+       commission type.
 
-    `commtype` commission type, which is by default set to "PERC"
-      to stock-like assets, while "ABS" for future-like ones.
+    `commtype`: 
+       commission type, which is by default set to "PERC" to stock-
+       like assets, while "ABS" for future-like ones.
 
-    `slippage` estimated mean slippage per trade. Slippage exists
-      to account for the effects of bid-ask spread.
+    `slippage`: 
+       slippage, estimated mean slippage per trade. Slippage exists
+       to account for the effects of bid-ask spread.
 
-    `currency` asset's quotation currency. Must be among the
-      currencies recognized by the algorithm.
+    `currency`: 
+       asset's quotation currency. Must be among the currencies 
+       recognized by the algorithm. See utils.config.py
 
-    `inception` registers the first trading date of the asset,
-      necessary for operations such as stocks ranking.
+    `inception`: 
+       registers the first trading date of the asset, necessary 
+       for operations such as stocks ranking.
 
-    `maturity` registers the maturity date of the asset,
-      necessary for operations such as futures rolling.
+    `maturity`: 
+       registers the maturity date of the asset, necessary for 
+       operations such as futures rolling.
     """
 
     def __init__(
