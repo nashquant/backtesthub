@@ -24,21 +24,47 @@ from .config import (
 class Line(np.ndarray):
 
     """
-    `Line Base Object`
+    Class Line
 
-    Line is a ndarray subclass implemented in order to have
-    the ability to access entries in a synchronized manner.
+    Line is a ndarray subclass, modified for the purpose 
+    of providing synchonized access to data array entries,
+    coordinated through a buffer attribute, which starts 
+    at some default value and gets incremented by the 
+    simulation/backtest main event loop. 
+    
+    E.g. for daily signals, reasonable values for initial buffer 
+    are ~200, because most simulations need at least 200 data-days 
+    points to be able to calculate metrics such as volatility, 
+    beta, SMA(200), etc.
 
-    To get a better sense about what is going on, refer to:
+    This way users can reference the current state of the
+    line by calling data.line_name[0], and previous values
+    that occured "n" periods/entries "ago", by referencing
+    data.line_name[-n], . 
+
+    Big thanks to backtrader, which inspired this way
+    of using buffers to organize/synchronize data objects.
+
+    To get a better sense about the implementation details, refer to:
 
     * https://numpy.org/doc/stable/user/basics.subclassing.html
     * https://github.com/mementum/backtrader/blob/master/backtrader/linebuffer.py
+
+
+    Parameters
+    -----------
+
+    `array`: ....
+
+    `buffer`: ....
+
+    
 
     """
 
     def __new__(
         cls,
-        array: Sequence[Any] = [],
+        array: Sequence[Any],
         buffer: int = _DEFAULT_BUFFER,
     ):
         arr = np.asarray(array)
@@ -79,21 +105,28 @@ class Line(np.ndarray):
 class Data:
 
     """
-    `Data Base Object`
+    Class Data
 
     A data array accessor. Even though the input is a `pd.DataFrame`,
     it gets transformed into a series of Lines (`np.ndarray` subclass)
     due to performance purposes.
 
-    * Inspired by both Backtesting.py and Backtrader Systems:
+    Data is stored in [lower-cased] columns, whose index must be either
+    a date or datetime (it will be converted to date anyways).
+
+    Note: This framework still doesn't accept timeframes different than
+    "daily"... In future updates we'll tackle this issue.
+
+    This was inspired by both Backtesting.py and Backtrader Systems:
       - https://github.com/kernc/backtesting.py.git
       - https://github.com/mementum/backtrader
 
-    Data is stored in [lower-cased] columns whose index must be either
-    a date or datetime (it will be converted to date).
+    Parameters
+    -----------
 
-    Note: The framework still doesn't accept timeframes different than
-    "daily"... In future updates we'll tackle this issue.
+    `data`: ....
+
+    `index`: ....
 
     """
 
@@ -201,19 +234,43 @@ class Data:
 class Base(Data):
 
     """
-    `Base Object`
+    Class Base 
 
     Base extends `Data` to create an unique asset class
-    that is intended to hold asset/price data that is not
-    supposed to be used for trading purposes, but rather
-    assets that are used to generate signals, calculate
-    currency conversion, and stuff like that.
+    that is intended to hold prices data that are not
+    supposed to be used for trading purposes, but rather,
+    data structures that are used to:
+    
+    1) Signal generation, 
+    2) Currency exchange, 
+    3) Volatility Estimation,
+    4) Anything that does not get 
+       traded nor is supposed to 
+       generate PnL.
 
-    Therefore there's no need to define properties such as
-    multiplier, commission scheme, etc.
+    e.g. When sizing a contract for USDBRL Futures, we
+    might be tempted to use this contract own data to
+    generate a reasonable volatility estimation or to
+    generate trading signals for our system, for example. 
+    
+    However, this might lead to severe inconsistencies, 
+    because USDBRL futures only have reliable price data 
+    for the period in which the contract is being "actively" 
+    trading, which is the last month preceeding maturity. 
+    
+    Therefore, we would be better off using some other proxy, 
+    such as the USDBRL spot price, to derive those metrics.     
 
     Note: The name base might be confusing... Please note
-    that the name base is different from "Base Class".
+    that the name base is different from the general term
+    used in object oriented programming "Base Class".
+
+     Parameters
+    -----------
+
+    `ticker`: string used .
+
+
     """
 
     def __init__(
@@ -236,14 +293,12 @@ class Base(Data):
 class Asset(Base):
 
     """
-    `Asset Class`
+    Class Asset
 
-    Asset Extends `Base` including features such as ticker,
-    currency, commission (value and type), and identifying
-    booleans to indicate things such as whether the asset
-    is a stock or a future, whether its OHLC data is given
-    in [default] price or rates.
-
+    Asset Extends `Base` including necessary features to
+    classify (stocklike or futureslike) and calculate PnL 
+    of those tradable assets (commission, multiplier, etc.). 
+    
     Parameters
     -----------
 

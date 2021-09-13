@@ -60,7 +60,7 @@ class Backtest:
         strategy: Strategy,
         pipeline: Pipeline,
         calendar: Calendar,
-        **kwargs: str,
+        **config: str,
     ):
         if not issubclass(strategy, Strategy):
             msg = "Arg `strategy` must be a `Strategy` subclass!"
@@ -76,13 +76,13 @@ class Backtest:
         self.__firstdate: date = self.__index[0]
         self.__lastdate: date = self.__index[-1]
 
-        self.__factor: str = kwargs.get("factor")
-        self.__market: str = kwargs.get("market")
-        self.__asset: str = kwargs.get("asset")
-        self.__hedge: str = kwargs.get("hedge")
-        self.__base: str = kwargs.get("base")
-        self.__hbase: str = kwargs.get("hbase")
-        self.__vertices: List[int] = kwargs.get("vertices")
+        self.__factor: str = config.get("factor")
+        self.__market: str = config.get("market")
+        self.__asset: str = config.get("asset")
+        self.__hedge: str = config.get("hedge")
+        self.__base: str = config.get("base")
+        self.__hbase: str = config.get("hbase")
+        self.__vertices: List[int] = config.get("vertices")
 
         self.__main: Line = Line(self.__index)
         self.__bases: Dict[str, Base] = OrderedDict()
@@ -142,8 +142,8 @@ class Backtest:
         `Base add function`
 
         - Main Base is assumed to be added first.
-        - Main H_Base is assumed to be added last.
-        - Other bases are the remaining ones.
+        - Main HBase is assumed to be added last.
+
         """
 
         base = Base(
