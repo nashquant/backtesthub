@@ -22,6 +22,78 @@ from .utils.config import (
 
 
 class Broker:
+
+    """
+    `Broker Class`
+
+    Broker is a central piece of this framework,
+    responsible for order and position management,
+    and all the related jobs of PnL/cash/equity 
+    calculations for each period, plus all the
+    logic to simulate a real `Broker`.
+
+    THIS BROKER ASSUMES ALL SIMULATION RESULTS'
+    ARE NET OF CASH CARRY, I.E., IF ONE STRATEGY
+    BUYS A STOCK WHICH RETURNS 10% Y.Y AGAINST
+    A RISK FREE RATE OF 5%, THE NET RESULT OUTPUT
+    WOULD BE ~5% (it is aprox. due to fees + 
+    compounding effect). 
+    
+    It includes, for instance, order validation - 
+    orders issued at period T, must only be able 
+    to be executed at time T+1, iff client has 
+    sufficient cash and order price is compatible 
+    to market conditions.
+
+    Furthermore, this broker class is capable of 
+    computing commissions charged and slippage per 
+    order, i.e., all costs associated with trading 
+    activity.
+
+    It is also capable of treating differently stock-
+    like and futures-like (be it rates-like or not) in
+    terms of PnL and Cash requirements. They differ
+    mostly because futures do not require cash  disbur-
+    sements upfront (while stocks do), but their daily
+    result will result in cash flows (for daily gains,
+    positive flows will occur, and vice-versa to daily
+    losses). 
+    
+    It is valid to mention [again] that positions that 
+    consume cash will imply in a negative carry effect, 
+    proportional to the exposure, while their remain 
+    opened (vice versa to short positions). Also, futures 
+    and stocks are different in the way commission is 
+    calculated, the framework accounts for that. 
+    
+    One final detail is about futures that are rateslike 
+    (a common requirement for brazilian rates trading) - 
+    those contracts usually are a swap between a fixed 
+    and float rate, therefore a long position should 
+    return the fixed part minus the float, which is similar 
+    to a position in which cash disbursement in done in the 
+    long end, and daily payments of the risk-free-rate are 
+    paid against.
+    
+    It is a very simple broker class, which still 
+    only receives market orders (without stop limit 
+    conditions), and that does not care about negative
+    equity/cash, nor cares about margin requirements
+    and alike. It also is not programmed to recognize
+    shorting interest costs and 
+    
+    WARNING: IF THE BACKTEST IS HIGHLY-LEVERAGED, 
+    RESULTS MAY BE UNFEASIBLE, DUE TO THOSE SIMPLE
+    ASSUMPTIONS OF NO MARGIN REQUIREMENTS, NO 
+    SHORT-SELLING RESTRICTIONS/COSTS, ETC..!!!
+
+    But it should work well for small/medium 
+    leveraged cases, as cash in account may be
+    used to buy bonds (yielding risk-free rate),
+    that are used to fulfill margin requirements.
+    
+    """
+
     def __init__(
         self,
         echo: bool,

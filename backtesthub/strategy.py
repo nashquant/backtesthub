@@ -60,13 +60,14 @@ class Strategy(metaclass=ABCMeta):
         """
         `Strategy Initialization`
 
-        Since this is an abstract method, it is 
-        expected to be overriden by another method 
-        belonging to a child class.
+        Since this is an abstract method, it 
+        is expected to be overriden by another 
+        method belonging to a child class.
 
-        This child class' init method will be responsible 
-        for setting up the initial conditions of the strategy 
-        object. This may include (not exhaustive): 
+        This child class' init method will be 
+        responsible for setting up the initial 
+        conditions of the strategy object. This 
+        may include (not exhaustive): 
         
         1) Indicator Setting/Broadcasting
         2) Volatility Setting/Broadcasting
@@ -105,9 +106,9 @@ class Strategy(metaclass=ABCMeta):
         Refer to backtesthub/calendar.py to know more about 
         global index setting.
 
-        NOTE: We assume the Strategy's `next` to be responsible 
-        to trade new/current, it is not responsible for closing 
-        positions that  no longer remains in the universe.
+        NOTE: It is assumed that Strategy's `next` is responsible 
+        for new/current trading, it is not responsible for closing 
+        positions that no longer remains in the universe, though.
         """
 
     def I(
@@ -130,8 +131,9 @@ class Strategy(metaclass=ABCMeta):
 
         The function should then perform calculations
         in a Line of the object and return an array-like
-        object containing only numbers, that will then,
-        be converted to indicators and signal lines
+        result containing only numbers, that then, is
+        converted to signal lines (if name is not passed, 
+        else it will assume `name`) 
         """
 
         try:
@@ -161,11 +163,12 @@ class Strategy(metaclass=ABCMeta):
         **kwargs: Union[str, int, float],
     ):
         """
-        `Volatility Assignment`
+        `Volatility Assignment Method`
 
         Basically does the same job as `self.I`
         but it is applied to volatility calcs.
         """
+        
         try:
             vol = func(data, *kwargs.values())
         except Exception as e:
@@ -183,7 +186,7 @@ class Strategy(metaclass=ABCMeta):
         lines: Sequence[str] = [],
     ):
         """
-        `Lines Broadcasting`
+        `Lines Broadcasting Method`
 
         Very important object that allows one
         to assign the indicator/signal lines
@@ -221,21 +224,19 @@ class Strategy(metaclass=ABCMeta):
     ) -> Optional[Number]:
 
         """
-        `Order Sizer`
+        `Order Sizer Method`
 
         Very important method that allows one
         to compute with great flexibility the
-        order size to be sent to the broker.
+        order size to be sent to the Broker.
 
-        First thing is to correctly select
-        the method to be employed, which by
-        "default" is the inverse volatility
-        sizing.
+        First thing is to correctly select the 
+        method to be employed, which by default 
+        is the inverse volatility sizing.
 
         Obs: For other methods, such as target
         expo order it is necessary to pass a
         number to parameter `texpo`.
-
         """
 
         if method not in _METHOD:
@@ -300,12 +301,27 @@ class Strategy(metaclass=ABCMeta):
         stop: Optional[float] = None,
     ):
         """
-        `Order`
+        `Order Method`
 
-        Write description!
+        Issues an order to Broker.
 
+        Order is executed whenever it is an opening
+        position (i.e. no previous position exists),
+        else if order size is greater than current
+        size (both in absolute terms) by a threshold.
+
+        If `threshold` is not set by the user, it will 
+        assume the default value set by _DEF_THRESH env 
+        variable (initialized at 20%).
+
+        Limit and Stop orders are still not available.
+
+        BEWARE: Users are enabled to call this function
+        without assigning any data, which automatically
+        sets data to be the first element of the assets
+        ordered dictionary.
         """
-
+        
         if data is None:
             data = self.asset
 
@@ -338,9 +354,22 @@ class Strategy(metaclass=ABCMeta):
         stop: Optional[float] = None,
     ):
         """
-        `Order Target`
+        `Order Target Method`
 
-        Write description!
+        Issues an order to Broker, similarly to `order` 
+        method, but instead of dealing with size of the 
+        order as an input, it gives the total target
+        position (which, oftentimes, may be the most 
+        convenient). Thus, it simply has an extra step 
+        that involves calculating the order size given 
+        both target and current positions.
+
+        Limit and Stop orders are still not available.
+
+        BEWARE: Users are enabled to call this function
+        without assigning any data, which automatically
+        sets data to be the first element of the assets
+        ordered dictionary.
 
         """
 
