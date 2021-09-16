@@ -86,4 +86,4 @@ def EMACross(
     ema1 = pd.Series(data.close).ewm(span=p1).mean()
     ema2 = pd.Series(data.close).ewm(span=p2).mean()
 
-    return np.sign(ema2 - ema1)
+    return np.sign(ema1 - ema2)

@@ -4,8 +4,8 @@ from datetime import date
 from operator import itemgetter
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
-from workdays import workday, networkdays
-from typing import Dict, Sequence, Union
+from workdays import workday
+from typing import Dict, Sequence
 from .utils.bases import Line, Asset
 from .broker import Broker
 from .utils.config import (
@@ -48,13 +48,62 @@ class Pipeline(metaclass=ABCMeta):
 
     @abstractmethod
     def init(self):
-        """ """
+        """
+        `Pipeline Initialization`
+
+        Since this is an abstract method, it 
+        is expected to be overriden by another 
+        method belonging to a child class.
+
+        This child class' init method will be
+        responsible for setting up the initial
+        conditions of the pipeline object.
+        """
 
     @abstractmethod
     def next(self) -> Sequence[Asset]:
-        """ """
+        """ 
+        `Pipeline Running`
+
+        Since this is an abstract method, it 
+        is expected to be overriden by another 
+        method belonging to a child class.
+
+        This child class' next method will be
+        responsible for determining a sequence
+        of tradeable `Assets` (data type) that
+        are allowed to be traded at some date,
+        which is a.k.a `universe`.
+
+        Called first time @ `start date` + `buffer`
+        and recurrently called at each period after
+        as defined by the `global index` set up
+        until it reaches end or the simulation is
+        stopped.
+
+        Refer to backtesthub/calendar.py to know
+        more about global index setting.
+
+        NOTE: We assume the Pipeline's next method 
+        to be responsible to close opened positions
+        that no longer remains in the universe. 
+        
+        """
 
     def build_chain(self):
+        """
+        `Build Chain Method`
+
+        This method is very important for
+        futures because it concatenates
+        cronologically the futures by
+        maturity.
+
+        It is important because futures
+        pipelines uses that to define
+        priority.
+        """
+
         maturities: Dict[str, date] = {
             asset.ticker: asset.maturity
             for asset in self.assets.values()
@@ -75,6 +124,15 @@ class Pipeline(metaclass=ABCMeta):
         return f"{self.__class__.__name__}<Universe: {self.universe}>"
 
     def get_date(self, lag: int = _DEFAULT_LAG) -> date:
+        """
+        `Get Date Method`
+
+        This function is an utils for users that
+        want to work with date management given
+        that `self.__main` holds the global index.
+
+        """
+
         return workday(self.__main[0], lag, self.__holidays)
 
     @property

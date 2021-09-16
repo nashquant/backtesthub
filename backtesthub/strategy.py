@@ -31,7 +31,6 @@ class Strategy(metaclass=ABCMeta):
     
     """
 
-
     def __init__(
         self,
         broker: Broker,

@@ -42,11 +42,12 @@ class Backtest:
     `Backtest Class`
 
     Instances of this class are responsible for orchestrating all
-    other objects (Strategy, Broker, Position, ...) in order to
+    related objects (Strategy, Broker, Position, ...) in order to
     properly run the simulation.
 
     It is also responsible for manipulating the global index and
-    guaranteeing that all Data/Lines/Broker are synchronized.
+    guaranteeing that all Data/Lines/Broker/Strategy are 
+    synchronized.
 
     Lots of features such as intraday operations, multi-calendar
     runs, live trading, etc. are still pending development.
@@ -113,6 +114,18 @@ class Backtest:
         pipeline: Pipeline,
         strategy: Strategy,
     ):
+        """
+        `Configure Hedge Method`
+
+        Works similarly to the strategy configuration
+        but this is specifically designed for hedging.
+
+        To properly define a strategy, one needs to build 
+        both pipeline and strategy rules, consistent with
+        the asset class and hedge properties desired.
+
+        """
+
         if not issubclass(strategy, Strategy):
             msg = "Arg `strategy` must be a `Strategy` subclass!"
             raise TypeError(msg)
@@ -139,11 +152,26 @@ class Backtest:
         data: pd.DataFrame,
     ):
         """
-        `Base add function`
+        `Add Base Method`
 
-        - Main Base is assumed to be added first.
-        - Main HBase is assumed to be added last.
+        - Main base is assumed to be added first.
+        - Main hbase is assumed to be added last.
 
+        Bases that can be classified either as
+        1) Currency Pairs, 2) Carry (i.e. "risk
+        free" cost of carry), 3) Market (i.e.
+        market index that can be used to make
+        beta regressions), will be assigned
+        to broker so that it may use for 
+        important calculations.
+
+        Reminder: Bases are data structures fed for
+        any purpose that is not trading. You may want
+        to define a base for things such as signal
+        generation, currency conversion, volatility
+        estimation. 
+        
+        More info @ backtesthub/utils/bases.py  
         """
 
         base = Base(
@@ -169,6 +197,22 @@ class Backtest:
         data: pd.DataFrame,
         **commkwargs: Union[str, Number],
     ):
+        """
+        `Add Asset Method`
+
+        Add data structures that will be used for
+        trading purposes. This does not mean that
+        they cannot be used for same purposes of
+        'bases', but you need to be aware of the
+        drawbacks.
+
+        `fill_OHLC` is applied to `data`, in order
+        to guarantee that broker gets an appropriate
+        schema for tradeable assets.
+        
+        More info @ backtesthub/utils/bases.py. 
+        """
+
         asset = Asset(
             data=fill_OHLC(data),
             ticker=ticker,
@@ -247,6 +291,13 @@ class Backtest:
 
     @property
     def bookname(self) -> str:
+        """
+        `Bookname Property`
+
+        Defines the official 
+        book name formula.
+        """
+
         book = f"{self.__factor}-{self.__market}-{self.__asset}"
         mapper = dict(
             EXPO="/",
@@ -282,6 +333,14 @@ class Backtest:
         return {**self.__bases, **self.__assets, **self.__hedges}
 
     def config_backtest(self):
+        """
+        `Configure Backtest UID`
+
+        Defines the official 
+        uid for backtest given
+        input data.
+        """
+
         self.__hash = {
             "factor": self.__factor,
             "market": self.__market,

@@ -2,13 +2,32 @@
 
 from datetime import date
 from numbers import Number
-from typing import Optional, Union
+from typing import Optional
 
 from .utils.bases import Asset
-from .utils.config import _STATUS, _COMMTYPE
+from .utils.config import (
+    _STATUS, 
+    _COMMTYPE,
+)
 
 
 class Order:
+    
+    """
+    `Order Class`
+
+    Holds information about orders sent by the strategy
+    to the broker. Provide access to order properties
+    and states, as well as defines rules that enables 
+    trading to occur and calculates costs of trading.
+
+    NOTE: Stop order and Limit order are not supported 
+    yet... We assume users to be operating in daily
+    frequency having the following open price adjusted
+    by slippage as the execution price. Future updates
+    will tackle this problem. 
+    """
+
     def __init__(
         self,
         data: Asset,
@@ -44,7 +63,6 @@ class Order:
         log = f"{kls}(Ticker: {tck}, Size: {sze}, Status: {sts}, Issued: {idt})"
 
         return log
-
 
     @property
     def issue_date(self) -> date:
@@ -105,17 +123,17 @@ class Order:
     @property
     def exec_price(self) -> Number:
         """
-        OBS: Some authors bound the
+        OBS: Some authors limit the
         value of the executed prices
         to be between the high/low
         prices.
 
         I choose not to do so, because
-        it is more conservative to allow
-        for big slippages, and because
-        some data lack high and low,
-        therefore it would underestimate
-        the potential slippage.
+        we usually have to handle data
+        that may lack precise high/low
+        data, besides that, high/low
+        values may be points with very 
+        low liquidity.
         """
 
         if not self.__limit:

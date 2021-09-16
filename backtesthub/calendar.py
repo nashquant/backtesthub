@@ -9,6 +9,28 @@ from .utils.config import _DEFAULT_SDATE, _DEFAULT_EDATE
 
 class Calendar:
 
+    """
+    `Calendar Class`
+
+    Class responsible for defining the global index that
+    will be applied for all data structures (Lines, Data,
+    Broker, etc.)
+
+    It is assumed that if no holidays sequence is given, 
+    it will derive the global index from a sequence of
+    business days from `start` until `end` dates using
+    `holidays` library to derive holidays. In this case,
+    It will assume by default that the "holidays set" is 
+    determined by a country [set by _DEF_COUNTRY, that 
+    is an environment variable], which is by default BR. 
+    
+    For US and BR, it is assumed that regional calendars 
+    are important, bc the most important exchanges are 
+    located at specific cities, and those are closed 
+    during local holidays. This behavior may be changed. 
+     
+    """
+
     def __init__(
         self,
         start: date = _DEFAULT_SDATE,
