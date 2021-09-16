@@ -5,7 +5,11 @@ from datetime import date, datetime
 from typing import Sequence
 from pandas import bdate_range
 
-from .utils.config import _DEFAULT_SDATE, _DEFAULT_EDATE
+from .utils.config import (
+    _DEFAULT_SDATE, 
+    _DEFAULT_EDATE,
+    _DEFAULT_COUNTRY,
+)
 
 class Calendar:
 
@@ -27,7 +31,7 @@ class Calendar:
     For US and BR, it is assumed that regional calendars 
     are important, bc the most important exchanges are 
     located at specific cities, and those are closed 
-    during local holidays. This behavior may be changed. 
+    during local holidays.
      
     """
 
@@ -36,7 +40,7 @@ class Calendar:
         start: date = _DEFAULT_SDATE,
         end: date = _DEFAULT_EDATE,
         holidays: Sequence[date] = [],
-        country: str = "BR", 
+        country: str = _DEFAULT_COUNTRY, 
     ):
         self.__sdate = start
         self.__edate = end

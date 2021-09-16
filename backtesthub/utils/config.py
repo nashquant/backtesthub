@@ -34,6 +34,7 @@ _DEFAULT_LAG: int = int(os.getenv("DEF_LAG", "4"))
 _DEFAULT_ECHO: bool = bool(os.getenv("DEF_ECHO", "True"))
 _DEFAULT_MAX_LOSS: float = float(os.getenv("DEF_MAX_LOSS", "-99"))
 _DEFAULT_MARKET: str = os.getenv("DEF_MARKET", "IBOV")
+_DEFAULT_CONTRY: str = os.getenv("DEF_COUNTRY", "BR")
 _DEFAULT_N: int = int(os.getenv("DEF_N", "30"))
 _DEFAULT_URL = {
     "drivername": str(os.getenv("DB_DRIVER", "")),

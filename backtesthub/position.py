@@ -9,8 +9,14 @@ class Position:
     """
     `Position Class`
 
-    Explanation...
-       
+    Holds information about positions held by the Broker 
+    and provides access to positions properties and states. 
+    Its main functionality is to isolate position management, 
+    and only allow positions increase/decrease through specific 
+    methods known/commanded by the broker object.
+
+    NOTE: Since stop order is not defined yet... The methods
+    to trigger stop losses/gains are not implement yet too. 
     """
 
     def __init__(
