@@ -23,12 +23,22 @@ from .utils.config import (
 
 
 class Strategy(metaclass=ABCMeta):
-
     """
     `Strategy Class`
 
-    Explanation... 
-    
+    Strategy is responsible for carrying all
+    the strategy logic [through ind/signals
+    definition] and trading commands [through
+    sizing positions and order issue to Broker].
+
+    This is one of the most complex classes of 
+    backtesthub, it leverages on Internal APIs
+    to various other classes instances, such as
+    `Pipeline`(which is used to get for each run
+    the most updated universe), `Broker` (which
+    gives information about current net exposure/
+    beta for hedging purposes, net equity value,
+    etc. and enables a channel to send orders) 
     """
 
     def __init__(
@@ -47,11 +57,58 @@ class Strategy(metaclass=ABCMeta):
 
     @abstractmethod
     def init():
-        """ """
+        """
+        `Strategy Initialization`
+
+        Since this is an abstract method, it is 
+        expected to be overriden by another method 
+        belonging to a child class.
+
+        This child class' init method will be responsible 
+        for setting up the initial conditions of the strategy 
+        object. This may include (not exhaustive): 
+        
+        1) Indicator Setting/Broadcasting
+        2) Volatility Setting/Broadcasting
+        3) Universe Initialization
+        4) Parameters Setting
+        """
 
     @abstractmethod
     def next():
-        """ """
+        """ 
+        `Strategy Running`
+
+        Since this is an abstract method, it is expected 
+        to be overriden by another method belonging to a 
+        child class.
+
+        This child class' next method will be responsible 
+        for carrying on all steps necessary for strategy 
+        definition each period, which may include a subset 
+        of following (not exhaustive) list:
+
+        1) Universe Setting/Updating.
+        2) Position Sizing [EXPO vs. IVOL].
+        3) Order Issue to Broker.
+
+        OBS: IVOL = INVERSE VOLATILITY, is the default method 
+        used by this class to properly size a position. It 
+        assumes that a target volatility is assigned(it is, 
+        by env variable _DEF_VOL, which is by default 10%) 
+
+        Called first time @ `start date` + `buffer` and 
+        recurrently called at each period after as defined 
+        by the `global index` set up until it reaches end 
+        or the simulation is stopped.
+
+        Refer to backtesthub/calendar.py to know more about 
+        global index setting.
+
+        NOTE: We assume the Strategy's `next` to be responsible 
+        to trade new/current, it is not responsible for closing 
+        positions that  no longer remains in the universe.
+        """
 
     def I(
         self,
@@ -61,21 +118,22 @@ class Strategy(metaclass=ABCMeta):
         **kwargs: Number,
     ):
         """
-        `Indicator Assignment`
+        `Indicator Assignment Method`
 
-        - Takes a custom function, a data structre
-          that can either be a Base or an Asset
-          and some parameters to be passed to func.
+        Takes a custom function, a data structre
+        that can either be a Base or an Asset
+        and some parameters to be passed to func.
 
-        - The function is supposed to receive the
-          data structure, and it is expected that
-          the function can manipulate the data "schema".
+        The function is supposed to receive the
+        data structure, and it is expected that
+        the function can manipulate the data "schema".
 
-        - The function should then perform calculations
-          in a Line of the object and return an array-like
-          object containing only numbers, that will then,
-          be converted to indicators and signal lines
+        The function should then perform calculations
+        in a Line of the object and return an array-like
+        object containing only numbers, that will then,
+        be converted to indicators and signal lines
         """
+
         try:
             ind = func(data, *kwargs.values())
         except Exception as e:

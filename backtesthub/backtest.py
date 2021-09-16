@@ -124,6 +124,9 @@ class Backtest:
         both pipeline and strategy rules, consistent with
         the asset class and hedge properties desired.
 
+        If HStrategy and HPipeline exists they will be
+        properly handled by the main event loop.
+
         """
 
         if not issubclass(strategy, Strategy):
@@ -154,8 +157,12 @@ class Backtest:
         """
         `Add Base Method`
 
-        - Main base is assumed to be added first.
-        - Main hbase is assumed to be added last.
+        ############## IMPORTANT ###############
+
+        - Main BASE is assumed to be added FIRST.
+        - Main HBASE is assumed to be added LAST.
+
+        ########################################
 
         Bases that can be classified either as
         1) Currency Pairs, 2) Carry (i.e. "risk
@@ -165,11 +172,11 @@ class Backtest:
         to broker so that it may use for 
         important calculations.
 
-        Reminder: Bases are data structures fed for
-        any purpose that is not trading. You may want
-        to define a base for things such as signal
-        generation, currency conversion, volatility
-        estimation. 
+        Reminder: Bases are data structures fed 
+        for any purpose that is not trading. One 
+        may want to define a base for things such 
+        as signal generation, currency conversion, 
+        volatility estimation, etc. 
         
         More info @ backtesthub/utils/bases.py  
         """
@@ -209,6 +216,10 @@ class Backtest:
         `fill_OHLC` is applied to `data`, in order
         to guarantee that broker gets an appropriate
         schema for tradeable assets.
+
+        All assets will be accessible by pointer/
+        reference by both the `Broker` and the 
+        `Pipeline` objects.
         
         More info @ backtesthub/utils/bases.py. 
         """
@@ -230,6 +241,22 @@ class Backtest:
         data: pd.DataFrame,
         **commkwargs: Union[str, Number],
     ):
+        """
+        `Add Hedge Method`
+
+        Same thing as `add_asset` method, except 
+        that this asset will be classified as a 
+        hedge by the framework.
+
+        This has implications on the accessibility 
+        of this asset by the pipeline - will only
+        be accessible by the HPipeline.
+
+        All assets will be accessible by pointer/
+        reference by both the `Broker` and the 
+        `HPipeline` objects.
+        """
+
         hedge = Asset(
             data=fill_OHLC(data),
             ticker=ticker,
@@ -242,6 +269,33 @@ class Backtest:
         )
 
     def run(self) -> Dict[str, pd.DataFrame]:
+        
+        """
+        `Main Event Loop Run`
+        
+        This method is the core function of the
+        whole backtest engine, which have the
+        following steps:
+
+        1) Make sure assets have been fed to it.
+
+        2) Initialize Pipeline(s) and Strategy(ies).
+        
+        3) For each day being an element of the
+           `global index`, apply the following
+           sequence:
+
+            3.1) Update All Data Buffers (Sync);
+            3.2) Update Broker's BoP State;
+            3.3) Update Pipeline(s) and Strategy(ies);
+            3.4) Update Broker's EoP State;
+            3.5) Check if stop condition is reached;
+            3.6) If not advance date and get back to 3.1;
+
+        4) Return all relevant information in a organized manner.
+        
+        """
+
         if not self.__assets:
             return
 
@@ -275,6 +329,13 @@ class Backtest:
         }
 
     def __advance_buffers(self):
+        """
+        `Advance Buffer Method`
+
+        Advances all line buffers at once,
+        guaranteeing synchronized updates.
+        """
+
         self.__main.next()
         self.__broker.next()
         for data in self.datas.values():
@@ -294,8 +355,7 @@ class Backtest:
         """
         `Bookname Property`
 
-        Defines the official 
-        book name formula.
+        Defines the official book name formula.
         """
 
         book = f"{self.__factor}-{self.__market}-{self.__asset}"
@@ -336,9 +396,8 @@ class Backtest:
         """
         `Configure Backtest UID`
 
-        Defines the official 
-        uid for backtest given
-        input data.
+        Defines the official uid for 
+        backtest given input data.
         """
 
         self.__hash = {

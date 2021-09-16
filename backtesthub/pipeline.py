@@ -86,8 +86,7 @@ class Pipeline(metaclass=ABCMeta):
 
         NOTE: We assume the Pipeline's next method 
         to be responsible to close opened positions
-        that no longer remains in the universe. 
-        
+        that no longer remains in the universe.         
         """
 
     def build_chain(self):
