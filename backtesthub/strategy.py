@@ -9,7 +9,7 @@ from typing import Callable, Dict, Union, Optional, Sequence
 
 from .broker import Broker
 from .pipeline import Pipeline
-from .utils.math import EWMAVolatility
+from .utils.math import EWMA_volatility
 from .utils.bases import Line, Base, Asset
 from .utils.config import (
     _DEFAULT_VOLATILITY,
@@ -99,7 +99,7 @@ class Strategy(metaclass=ABCMeta):
     def V(
         self,
         data: Union[Base, Asset],
-        func: Callable = EWMAVolatility,
+        func: Callable = EWMA_volatility,
         **kwargs: Union[str, int, float],
     ):
         """

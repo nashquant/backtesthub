@@ -18,6 +18,17 @@ def EWMA(
     alpha: float = _DEFAULT_VPARAM,
 ) -> pd.Series:
 
+    """
+    `EWMA Function`
+    
+    Applies EWMA(alpha = _DEF_VPARAM) to data.close
+    in order to return a pd.Series with the exp. mov.
+    average
+    
+    For more information about EWMA and parameters
+    refer to the function `EWMA_volatility` below.  
+    """
+
     if not type(data) in (Base, Asset):
         msg = "Wrong data type input"
         raise TypeError(msg)
@@ -31,11 +42,17 @@ def EWMA(
     return data.close.series.ewm(alpha=alpha).mean()
 
 
-def EWMAVolatility(
+def EWMA_volatility(
     data: Union[Base, Asset],
     alpha: float = _DEFAULT_VPARAM,
     freq: int = 252,
 ) -> pd.Series:
+
+    """
+    `EWMA Volatility Function`
+    
+    
+    """
 
     if not type(data) in (Base, Asset):
         msg = "Wrong data type input"
@@ -55,6 +72,48 @@ def EWMAVolatility(
 
 
 def adjust_stocks(data: pd.DataFrame) -> pd.DataFrame:
+
+    """
+    `Adjust Stocks Function`
+
+    This "utils" function expects users to give a 
+    `pd.DataFrame` with columns at least {"Close", 
+    "Returns"} - better if they contain all OHLC = 
+    {"Open", "High", "Low", "Close"} + {"Returns"}- 
+    
+    Additionally, this price  dataframe is assumed to 
+    have no adjustments, which means that it registers
+    data as it happened in the past ("as is").
+
+    For stocks, in order to be consistent, we need 
+    to update those previous values adjusting them
+    by dividends and stock splits, or at least we
+    would need the `Broker` to be able to handle
+    those events, otherwise the calculated PNL 
+    would be wrong!
+
+    For the way we process data, we prefer to store
+    OHLCV data without any adjustment ("as is"), 
+    because it is easier to maintain (no need to 
+    recurrent maintenance, as it would if we stored 
+    adjusted data). 
+    
+    Besides that, instead of ETLing a collection/table 
+    of events (e.g. dividends and splits), we prefer to 
+    store the adjusted returns for each day (which does
+    not require constant maintanence) and bear the "not
+    so bad" (for us, at least) overhead of adjusting 
+    OHLCV each time we run a simulation.  
+
+    NOTE: One may think that the adjustment factors
+    might become large enough that the price becomes 
+    too small that affects PNL calculations. For all
+    stocks we tested (e.g. MGLU3 is an interesting 
+    case), we found no issue with that because we put 
+    no restrictions to the number of decimals we output 
+    after the adjustment.
+    """
+
     schema = list(data.columns)
     OHLC = ["open", "high", "low", "close"]
 
@@ -88,13 +147,26 @@ def rate2price(
 ):
 
     """
-    Receives a dataframe (OHLC schemed) to
-    make rate-price transformation, based
-    upon a given set of holidays.
+    `Adjust Rates Function`
 
-    <<<ATTENTION: CODE NEEDS REFACTORING>>>>
-    <<<REMINDER: CHANGE HIGH-LOW ORDER>>>>>>
+    This "utils" function expects users to give a 
+    `pd.DataFrame` with columns at least {"Close", 
+    "Returns"} - better if they contain all OHLC = 
+    {"Open", "High", "Low", "Close"} + {"Returns"}- 
 
+    It will then compute the transformation of base
+    from rates - e.g. DI1F23 may be quoted at any 
+    day, say 2021/09/15, as 8.94%y.y - to price per
+    unit - for the last e.g., PRICE = R$ 89,514.32. 
+    
+    To carry this transformation, we need to have
+    a calendar of future holidays (at least up 
+    until maturity), and the contract size. 
+
+    NOTE: For this function, we assume those values 
+    to be specifically designed to Brazilian DI. If
+    one is interested in computing cases other than
+    this one, some changes must be implemented! 
     """
 
     schema = list(data.columns)
@@ -123,6 +195,33 @@ def rate2price(
 
 
 def fill_OHLC(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    `Fill OHLC Function`
+
+    This "utils" function expects users to give a 
+    `pd.DataFrame` with columns at least {"Close", 
+    "Returns"} - better if they contain all OHLC = 
+    {"Open", "High", "Low", "Close"} + {"Returns"}-
+
+    We know, oftentimes, price dataframes aren't 
+    completely "clean", which means that specially
+    OHL values may be None/NaN, or may contain 
+    values that doesn't make sense.
+
+    Thus, this procedure applies, in a vectorized
+    fashion, a "data cleansing" check for OHL
+    existance (if they don't exist, they will
+    be set @ close price) and their validity
+    
+    H = max(open, high, low, close)
+    L = min(open, high, low, close)
+    
+    By applying this procedure, we can assure that
+    if close prices are correct (at least those 
+    are the ones we might have more certain about
+    their validity), we'll be able to input a 
+    consistent price df for the `Broker`.  
+    """
 
     if "close" not in df.columns:
         txt = "df must have at least CLOSE as column"
