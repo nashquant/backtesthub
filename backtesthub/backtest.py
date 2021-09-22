@@ -84,6 +84,7 @@ class Backtest:
         self.__base: str = config.get("base")
         self.__hbase: str = config.get("hbase")
         self.__vertices: List[int] = config.get("vertices")
+        self.__compensation: float = config.get("compensation")
 
         self.__main: Line = Line(self.__index)
         self.__bases: Dict[str, Base] = OrderedDict()
@@ -321,12 +322,17 @@ class Backtest:
             if self.__broker.cum_return < _DEFAULT_MAX_LOSS:
                 break
 
-        return {
+        dct = {
             "meta": self.__properties,
             "quotas": self.__broker.df,
             "records": self.__broker.rec,
             "broker": self.__broker,
         }
+
+        dct['quotas']['uid'] = self.__uid
+        dct['records']['uid'] = self.__uid
+
+        return dct
 
     def __advance_buffers(self):
         """
@@ -432,6 +438,7 @@ class Backtest:
                     "thresh": _DEFAULT_THRESH,
                     "vparam": _DEFAULT_VPARAM,
                     "bookname": self.bookname,
+                    "compensation": self.__compensation,
                 }
             ]
         )

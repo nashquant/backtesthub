@@ -28,26 +28,26 @@ class Broker:
 
     Broker is a central piece of this framework,
     responsible for order and position management,
-    and all the related jobs of PnL/cash/equity 
+    and all the related jobs of PnL/cash/equity
     calculations for each period.
 
     THIS BROKER ASSUMES ALL SIMULATION RESULTS'
     ARE NET OF CASH CARRY, I.E., IF ONE STRATEGY
     BUYS A STOCK WHICH RETURNS 10% Y.Y AGAINST
     A RISK FREE RATE OF 5%, THE NET RESULT OUTPUT
-    WOULD BE ~5% (it is aprox. due to fees + 
-    compounding effect). 
-    
-    It includes, for instance, order validation - 
-    orders issued at period T, must only be able 
-    to be executed at time T+1, iff client has 
-    sufficient cash and order price is compatible 
+    WOULD BE ~5% (it is aprox. due to fees +
+    compounding effect).
+
+    It includes, for instance, order validation -
+    orders issued at period T, must only be able
+    to be executed at time T+1, iff client has
+    sufficient cash and order price is compatible
     to market conditions.
 
-    Furthermore, this broker class is capable of 
-    factoring commissions charged and slippage per 
-    order, i.e., all costs associated with trading 
-    activity. Futures and stocks are different in 
+    Furthermore, this broker class is capable of
+    factoring commissions charged and slippage per
+    order, i.e., all costs associated with trading
+    activity. Futures and stocks are different in
     the way commission is calculated, by default
     the algorithm assumes stocks have percentage
     of traded value as comission, whereas futures
@@ -60,42 +60,42 @@ class Broker:
     sements upfront (while stocks do), but their daily
     result will result in cash flows (for daily gains,
     positive flows will occur, and vice-versa to daily
-    losses). 
-    
-    It is valid to mention [again] that positions that 
-    consume cash will bear a negative carry effect, 
-    proportional to the exposure, while they remain 
-    opened (vice versa to short positions). 
-    
-    One last detail is about futures that are rateslike 
-    (a common requirement for brazilian rates trading) - 
-    those contracts usually are a swap between a fixed 
-    and float rate, therefore a long position should 
-    return the fixed part minus the float. We treat 
+    losses).
+
+    It is valid to mention [again] that positions that
+    consume cash will bear a negative carry effect,
+    proportional to the exposure, while they remain
+    opened (vice versa to short positions).
+
+    One last detail is about futures that are rateslike
+    (a common requirement for brazilian rates trading) -
+    those contracts usually are a swap between a fixed
+    and float rate, therefore a long position should
+    return the fixed part minus the float. We treat
     this type of future contract as having a normal
     PnL for the fixed rate part, while we make a
     risk-free rate adjustment to reflect the float
-    part, similar to "cash-like/cash disbursement" 
+    part, similar to "cash-like/cash disbursement"
     assets.
-    
-    It is a very simple broker class, which still 
-    only receives market orders (without stop limit 
+
+    It is a very simple broker class, which still
+    only receives market orders (without stop limit
     conditions), and that does not care about negative
     equity/cash, nor cares about margin requirements
     and alike. It also is not programmed to recognize
     "short" interest in stocks (especially important
-    to small cap stocks.  
-    
-    WARNING: IF THE BACKTEST IS HIGHLY-LEVERAGED, 
-    RESULTS MAY BE UNFEASIBLE, DUE TO ASSUMPTIONS 
-    OF NO MARGIN REQUIREMENTS, NO SHORT-SELLING 
+    to small cap stocks.
+
+    WARNING: IF THE BACKTEST IS HIGHLY-LEVERAGED,
+    RESULTS MAY BE UNFEASIBLE, DUE TO ASSUMPTIONS
+    OF NO MARGIN REQUIREMENTS, NO SHORT-SELLING
     RESTRICTIONS/COSTS, ETC..!!!
 
-    But it should work well for small/medium 
+    But it should work well for small/medium
     leveraged cases, as cash in account may be
     used to buy bonds (yielding risk-free rate),
     that are used to fulfill margin requirements.
-    
+
     """
 
     def __init__(
@@ -125,6 +125,7 @@ class Broker:
         self.__ipnl: dict[str, Number] = ddict(float)  ## intraday
         self.__tpnl: dict[str, Number] = ddict(float)  ## trade
         self.__cpnl: dict[str, Number] = ddict(float)  ## carry
+        self.__pnl: dict[str, Number] = ddict(float)  ## total
 
         self.__records: Sequence[Union[date, Number]] = list()
 
@@ -330,7 +331,7 @@ class Broker:
 
         position = self.__positions[ticker]
         position.add(order.size)
-        
+
         if not position.size:
             self.__positions.pop(ticker)
 
@@ -383,8 +384,8 @@ class Broker:
 
         Finally, after EoP calculations, this method
         stores the current state of all positions info,
-        size, pnl breakdown, etc. into a dictionary of 
-        "records". 
+        size, pnl breakdown, etc. into a dictionary of
+        "records".
 
         """
 
@@ -414,6 +415,13 @@ class Broker:
             if not data.stocklike:
                 self.__cash[self.__buffer] += MTM
 
+            self.__pnl[ticker] = (
+                self.__opnl[ticker]
+                + self.__ipnl[ticker]
+                + self.__cpnl[ticker]
+                + self.__tpnl[ticker]
+            )
+
             if not data.rateslike:
                 self.__records.append(
                     {
@@ -425,6 +433,7 @@ class Broker:
                         "ipnl": self.__ipnl[ticker],
                         "tpnl": self.__tpnl[ticker],
                         "cpnl": self.__cpnl[ticker],
+                        "pnl": self.__pnl[ticker],
                         "signal": data.signal[0],
                         "refvol": data.volatility[0],
                         "target": target,
@@ -442,6 +451,7 @@ class Broker:
                         "ipnl": self.__ipnl[ticker],
                         "tpnl": self.__tpnl[ticker],
                         "cpnl": self.__cpnl[ticker],
+                        "pnl": self.__pnl[ticker],
                         "signal": -data.signal[0],
                         "refvol": data.volatility[0],
                         "target": -target,
@@ -483,7 +493,7 @@ class Broker:
         Reference price calculated @ CLOSE
         """
         expo = 0
-        
+
         for pos in self.position_stack:
             data, ticker = pos.data, pos.ticker
             size, factor = pos.size, data.multiplier
@@ -493,8 +503,8 @@ class Broker:
                 pair = f"{curr}{_DEFAULT_CURRENCY}"
                 factor *= self.__currs[pair].close[0]
 
-            expo+= size * factor * data.close[0] / self.curr_equity
-        
+            expo += size * factor * data.close[0] / self.curr_equity
+
         return expo
 
     def get_texpo(self) -> Number:
@@ -503,7 +513,7 @@ class Broker:
         Reference price calculated @ CLOSE
         """
         texpo = 0
-        
+
         for pos in self.position_stack:
             data, ticker = pos.data, pos.ticker
             size, factor = pos.size, data.multiplier
@@ -520,22 +530,22 @@ class Broker:
             else:
                 target = size
 
-            texpo+=target * factor * data.close[0] / self.curr_equity
-        
+            texpo += target * factor * data.close[0] / self.curr_equity
+
         return texpo
 
     def get_beta(self) -> Number:
         """
         Get Current Beta w/ respect to market
 
-        OBS: This is a very inneficient way to 
+        OBS: This is a very inneficient way to
         calculate beta, in further updates this
-        issue will be tackled. 
+        issue will be tackled.
         """
-        beta =  0
+        beta = 0
 
         if self.__market is None:
-            txt="Broker Arg `Market` not specified"
+            txt = "Broker Arg `Market` not specified"
             raise ValueError(txt)
 
         for pos in self.position_stack:
@@ -555,16 +565,16 @@ class Broker:
                         "vol": data.volatility.array,
                         "mvol": self.__market.volatility.array,
                     },
-                    index = data.index.array
+                    index=data.index.array,
                 )
-                df['ret'] = df.close.pct_change()
-                df['mret'] = df.mclose.pct_change() 
-                df['corrl'] = df.ret.ewm(alpha=0.05).corr(df.mret)
-                df['beta'] = df.corrl * df.vol / df.mvol
+                df["ret"] = df.close.pct_change()
+                df["mret"] = df.mclose.pct_change()
+                df["corrl"] = df.ret.ewm(alpha=0.05).corr(df.mret)
+                df["beta"] = df.corrl * df.vol / df.mvol
 
-                data.add_line("beta", Line(df.beta, buffer = data.buffer))
+                data.add_line("beta", Line(df.beta, buffer=data.buffer))
 
-            beta+= data.beta[0] * size * factor * data.close[0] / self.curr_equity
+            beta += data.beta[0] * size * factor * data.close[0] / self.curr_equity
 
         return beta
 
@@ -572,14 +582,14 @@ class Broker:
         """
         Get Target Beta w/ respect to market
 
-        OBS: This is a very inneficient way to 
+        OBS: This is a very inneficient way to
         calculate beta, in further updates this
-        issue will be tackled. 
+        issue will be tackled.
         """
-        beta =  0
+        beta = 0
 
         if self.__market is None:
-            txt="Broker Arg `Market` not specified"
+            txt = "Broker Arg `Market` not specified"
             raise ValueError(txt)
 
         for pos in self.position_stack:
@@ -606,16 +616,16 @@ class Broker:
                         "vol": data.volatility.array,
                         "mvol": self.__market.volatility.array,
                     },
-                    index = data.index.array
+                    index=data.index.array,
                 )
-                df['ret'] = df.close.pct_change()
-                df['mret'] = df.mclose.pct_change() 
-                df['corrl'] = df.ret.ewm(alpha=0.05).corr(df.mret)
-                df['beta'] = df.corrl * df.vol / df.mvol
+                df["ret"] = df.close.pct_change()
+                df["mret"] = df.mclose.pct_change()
+                df["corrl"] = df.ret.ewm(alpha=0.05).corr(df.mret)
+                df["beta"] = df.corrl * df.vol / df.mvol
 
-                data.add_line("beta", Line(df.beta, buffer = data.buffer))
+                data.add_line("beta", Line(df.beta, buffer=data.buffer))
 
-            beta+= data.beta[0] * target * factor * data.close[0] / self.curr_equity
+            beta += data.beta[0] * target * factor * data.close[0] / self.curr_equity
 
         return beta
 
@@ -714,7 +724,7 @@ class Broker:
         Broker. Returns a dataframe of performance
         statistics such as returns/drawdown/sharpe/
         volatility/etc...
-        
+
         """
 
         dates = [dt.isoformat() for dt in self.index]
@@ -722,9 +732,9 @@ class Broker:
             {
                 "date": dates,
                 "cash": self.cash,
-                "open": self.open,
                 "equity": self.equity,
-                "quota": self.quotas,
+                "open": self.open,
+                "close": self.quotas,
             }
         )
 
