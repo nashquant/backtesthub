@@ -24,15 +24,10 @@ def derive_asset(fticker: str) -> str:
     m = fticker[-3]  ## Future Maturity Month
     y = fticker[-2:]  ## Future Maturity Year
 
-    errmsg = (
-        "This `ticker` cannot have `mult` " 
-        "property because it is stock-like!"
-    )
-
-    if m not in _MATURITIES:
-        raise ValueError(errmsg)
-
-    if not y.isdigit():
-        raise ValueError(errmsg)
+    if (
+        m not in _MATURITIES
+        or not y.isdigit()
+    ):
+        return fticker
 
     return fticker[:-3]

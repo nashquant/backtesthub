@@ -45,12 +45,21 @@ def EWMA(
 def EWMA_volatility(
     data: Union[Base, Asset],
     alpha: float = _DEFAULT_VPARAM,
-    freq: int = 252,
 ) -> pd.Series:
 
     """
     `EWMA Volatility Function`
     
+    EWMA stands for Exponentially Weighted Moving Average. 
+    
+    This algorithm computes volatility with EWMA approach, 
+    i.e., vol_t = (1-alpha) * vol_t-1 + alpha(ret_t**2)
+
+    It uses the standard df.ewm().std() implementation,
+    in order to compute this in a vectorized fashion.
+    Besides that, if alpha is not given, the function
+    takes the env variable DEF_VPARAM which starts
+    at default value of 5/100.
     
     """
 
@@ -68,7 +77,7 @@ def EWMA_volatility(
         msg = "Close not in Schema"
         raise ValueError(msg)
 
-    return returns.ewm(alpha=alpha).std() * math.sqrt(freq)
+    return returns.ewm(alpha=alpha).std() * math.sqrt(252)
 
 
 def adjust_stocks(data: pd.DataFrame) -> pd.DataFrame:

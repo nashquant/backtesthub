@@ -29,8 +29,7 @@ class Broker:
     Broker is a central piece of this framework,
     responsible for order and position management,
     and all the related jobs of PnL/cash/equity 
-    calculations for each period, plus all the
-    logic to simulate a real `Broker`.
+    calculations for each period.
 
     THIS BROKER ASSUMES ALL SIMULATION RESULTS'
     ARE NET OF CASH CARRY, I.E., IF ONE STRATEGY
@@ -46,13 +45,17 @@ class Broker:
     to market conditions.
 
     Furthermore, this broker class is capable of 
-    computing commissions charged and slippage per 
+    factoring commissions charged and slippage per 
     order, i.e., all costs associated with trading 
-    activity.
+    activity. Futures and stocks are different in 
+    the way commission is calculated, by default
+    the algorithm assumes stocks have percentage
+    of traded value as comission, whereas futures
+    have a fixed number by contract.
 
     It is also capable of treating differently stock-
     like and futures-like (be it rates-like or not) in
-    terms of PnL and Cash requirements. They differ
+    terms of PnL and cash requirements. They differ
     mostly because futures do not require cash  disbur-
     sements upfront (while stocks do), but their daily
     result will result in cash flows (for daily gains,
@@ -60,32 +63,33 @@ class Broker:
     losses). 
     
     It is valid to mention [again] that positions that 
-    consume cash will imply in a negative carry effect, 
-    proportional to the exposure, while their remain 
-    opened (vice versa to short positions). Also, futures 
-    and stocks are different in the way commission is 
-    calculated, the framework accounts for that. 
+    consume cash will bear a negative carry effect, 
+    proportional to the exposure, while they remain 
+    opened (vice versa to short positions). 
     
-    One final detail is about futures that are rateslike 
+    One last detail is about futures that are rateslike 
     (a common requirement for brazilian rates trading) - 
     those contracts usually are a swap between a fixed 
     and float rate, therefore a long position should 
-    return the fixed part minus the float, which is similar 
-    to a position in which cash disbursement in done in the 
-    long end, and daily payments of the risk-free-rate are 
-    paid against.
+    return the fixed part minus the float. We treat 
+    this type of future contract as having a normal
+    PnL for the fixed rate part, while we make a
+    risk-free rate adjustment to reflect the float
+    part, similar to "cash-like/cash disbursement" 
+    assets.
     
     It is a very simple broker class, which still 
     only receives market orders (without stop limit 
     conditions), and that does not care about negative
     equity/cash, nor cares about margin requirements
     and alike. It also is not programmed to recognize
-    shorting interest costs and 
+    "short" interest in stocks (especially important
+    to small cap stocks.  
     
     WARNING: IF THE BACKTEST IS HIGHLY-LEVERAGED, 
-    RESULTS MAY BE UNFEASIBLE, DUE TO THOSE SIMPLE
-    ASSUMPTIONS OF NO MARGIN REQUIREMENTS, NO 
-    SHORT-SELLING RESTRICTIONS/COSTS, ETC..!!!
+    RESULTS MAY BE UNFEASIBLE, DUE TO ASSUMPTIONS 
+    OF NO MARGIN REQUIREMENTS, NO SHORT-SELLING 
+    RESTRICTIONS/COSTS, ETC..!!!
 
     But it should work well for small/medium 
     leveraged cases, as cash in account may be
@@ -153,11 +157,12 @@ class Broker:
         stop: Optional[Number] = None,
     ):
         """
-        `Order Creation`
+        `Order Creation Method`
 
-        - Checks order for the same ticker.
-        - If so, cancels that order.
-        - Updates Open Orders Dictionary.
+        Checks if there's an order for the same ticker.
+        If so, cancels that order, if not it is already
+        ok. Finally, it updates the order dictionary
+        (key is the ticker, one order per ticker!).
 
         """
 
@@ -270,7 +275,7 @@ class Broker:
 
     def __execute_order(self, order: Order):
         """
-        `Order Execution`
+        `Order Execution Method`
 
         - Checks whether price is executable.
         - Checks whether cash is sufficient.
@@ -375,6 +380,11 @@ class Broker:
         3) End of period (or EoP): 100*(12 - 10.5)
 
         See these two PNL account methods match!
+
+        Finally, after EoP calculations, this method
+        stores the current state of all positions info,
+        size, pnl breakdown, etc. into a dictionary of 
+        "records". 
 
         """
 
@@ -517,6 +527,10 @@ class Broker:
     def get_beta(self) -> Number:
         """
         Get Current Beta w/ respect to market
+
+        OBS: This is a very inneficient way to 
+        calculate beta, in further updates this
+        issue will be tackled. 
         """
         beta =  0
 
@@ -557,6 +571,10 @@ class Broker:
     def get_tbeta(self) -> Number:
         """
         Get Target Beta w/ respect to market
+
+        OBS: This is a very inneficient way to 
+        calculate beta, in further updates this
+        issue will be tackled. 
         """
         beta =  0
 
@@ -689,6 +707,16 @@ class Broker:
 
     @property
     def df(self) -> pd.DataFrame:
+        """
+        `Transform to DF Property`
+
+        Given the list of cash/equity registers from
+        Broker. Returns a dataframe of performance
+        statistics such as returns/drawdown/sharpe/
+        volatility/etc...
+        
+        """
+
         dates = [dt.isoformat() for dt in self.index]
         df = pd.DataFrame.from_records(
             {

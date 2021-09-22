@@ -317,3 +317,63 @@ class VA_Ranking(Pipeline):
             self.universe = unv.copy()
 
         return self.universe
+
+class Portfolio(Pipeline):
+
+    """
+    `Portfolio Pipeline`
+
+    Extends from the Base Pipeline Class. It works together 
+    with Hierarchy Strategy defined at ~/examples/portfolio.py
+    
+    From the beggining of the fund we opted to have an Static 
+    Hierarchy Risk Parity (HRP - there are lots of reference to 
+    this topic), since it combined simplicity and flexibility to 
+    our allocation process - we can control how much risk conctr 
+    we give to each factor and market, without having to be very 
+    specific in the allocation of the lower hierarchy levels (those 
+    are pure risk parity based, i.e., allocation is the same for
+    each "child" and defined by the upper level's risk budget). 
+    
+    This approach DOES NOT try to maximize the expected returns, 
+    instead its based on the idea that, ex-ante, we cannot know 
+    which models will outperform, but we acknowledge that models
+    that belongs to same factor & market (in order, hierarchies 
+    one and two) tend to share a lot of underlying risk factors,
+    and some may be more interesting than others, especially if
+    we account effects of liquidity, significantly higher and
+    sustained realized sharpe ratio, etc. Thus, those models
+    should be fighting among themselves to achieve a higher
+    risk participation in the overall structure.
+
+    Indeed, this model should be viewed as a similar approach
+    of an inv. bank's prop desk , where traders (models) fight
+    to get a higher allocation, while the organization defines
+    the overall risk budget, and how it is divided in the upper
+    levels so that it reflects best the desired risk profile 
+    
+    For instance, we like trend-following properties, so we want 
+    our fund to have a higher share of it overall, that's why it
+    receives >60% risk budget (highest level). However, for the 
+    lower levels (i.e. market, geographies, etc.), it has a much 
+    more balanced approach, where risk is divided almost equally 
+    in the downstream branches.
+
+    Here, we expect that all underlying strategies start and end
+    at the same dates, but it may not occur, that's why we let
+    the universe to rebuild at each `next` call.
+
+    OBS: STILL PENDING DEVELOPMENT OF A RISK REDISTRIBUITION 
+    SCHEME IN CASE STRATEGIES START/END IN DIFERENT PERIODS...   
+    
+    """
+
+    def init(self):
+        self.universe = []
+
+    def next(self) -> Sequence[Asset]:
+        self.universe = [
+            asset for asset in self.assets.values()
+            if asset.inception <= self.date
+            and asset.maturity >= self.date
+        ]
