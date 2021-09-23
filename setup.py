@@ -21,8 +21,8 @@ if __name__ == '__main__':
         license = 'AGPL-3.0',
         author = "Matheus Pires",
         author_email = "matheus.augusto.pires@alumni.usp.br",
-        description = "BacktestHub is a python-based backtest"
-        " framework focused solely on the engine capabilities",
+        description = "BacktestHub is an efficient and simple "
+        "python-based backtest framework",
         long_description = read('README.md'),
         packages = find_packages(),
         version = '4.0.0',
