@@ -329,8 +329,8 @@ class Backtest:
             "broker": self.__broker,
         }
 
-        dct['quotas']['uid'] = self.__uid
-        dct['records']['uid'] = self.__uid
+        dct['quotas']['uid'] = self.__uid.hex
+        dct['records']['uid'] = self.__uid.hex
 
         return dct
 
@@ -416,7 +416,7 @@ class Backtest:
             "vertices": self.__vertices,
             "pipeline": self.__pipeline.__class__.__name__,
             "model": self.__strategy.__class__.__name__,
-            "params": dict(self.__strategy.get_params()),
+            "params": str(dict(self.__strategy.get_params())),
             "budget": _DEFAULT_VOLATILITY,
             "buffer": _DEFAULT_BUFFER,
         }

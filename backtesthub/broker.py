@@ -743,7 +743,7 @@ class Broker:
         df["m12"] = np.exp(df.returnsln.rolling(252).sum()) - 1
         df["volatility"] = math.sqrt(252) * df.returns.rolling(252).std()
         df["sharpe"] = df["m12"] / df["volatility"]
-        df["drawdown"] = df["quota"] / df["quota"].cummax() - 1
+        df["drawdown"] = df["close"] / df["close"].cummax() - 1
 
         return df
 

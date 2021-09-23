@@ -178,9 +178,35 @@ res = backtest.run()
 ##########################################################
 ################### RESULTS MANAGEMENT ###################
 
-strat_meta = res["meta"].iloc[0,:]
+strat, strat_meta = res["meta"], res["meta"].iloc[0, :]
 df, rec = res["quotas"], res["records"]
 
-print("\n" + str(strat_meta))
-print("\n" + str(df))
-print("\n" + str(rec))
+strat.set_index("uid", inplace=True)
+df.set_index("date", inplace=True)
+rec.set_index("date", inplace=True)
+
+##########################################################
+##################### RESULTS OUTPUT #####################
+
+with engine.connect().execution_options(autocommit=True) as conn:
+    conn.execute(f"DELETE FROM quant._Strategies WHERE uid IN ('{strat_meta['uid']}') ")
+    conn.execute(f"DELETE FROM quant._Quotas WHERE uid IN ('{strat_meta['uid']}')")
+    conn.execute(f"DELETE FROM quant._Positions WHERE uid IN ('{strat_meta['uid']}')")
+
+strat.to_sql(
+    "_Strategies",
+    con=engine,
+    if_exists="append",
+)
+
+df.to_sql(
+    "_Quotas",
+    con=engine,
+    if_exists="append",
+)
+
+rec.to_sql(
+    "_Positions",
+    con=engine,
+    if_exists="append",
+)
