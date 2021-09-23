@@ -27,7 +27,7 @@ pd.options.mode.chained_assignment = None
 ######################### CONFIG #########################
 
 factor = "ALTBETA"
-market = "STOCKSBR@MOM"
+market = "STKBR@MOM"
 hbase = "IBOV"
 asset, hedge = "MULTI", "IND"
 volume = "VOBZBRC"
