@@ -412,7 +412,7 @@ class Backtest:
             "hedge": self.__hedge,
             "base": self.__base,
             "hbase": self.__hbase,
-            "vertices": self.__vertices,
+            "vertices": str(self.__vertices),
             "pipeline": self.__pipeline.__class__.__name__,
             "model": self.__strategy.__class__.__name__,
             "params": str(dict(self.__strategy.get_params())),
