@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-from os import pipe
 import pandas as pd
 from numbers import Number
 from uuid import uuid3, NAMESPACE_DNS
@@ -35,7 +34,6 @@ from .utils.config import (
     _DEFAULT_MARKET,
 )
 
-
 class Backtest:
 
     """
@@ -53,7 +51,8 @@ class Backtest:
     runs, live trading, etc. are still pending development.
 
     Some settings may be changed through environment variables
-    configuration. Refer to .utils.config to get more info.
+    configuration. Refer to ~/backtesthub/utils/config.py to get 
+    more info.
     """
 
     def __init__(
@@ -417,7 +416,6 @@ class Backtest:
             "pipeline": self.__pipeline.__class__.__name__,
             "model": self.__strategy.__class__.__name__,
             "params": str(dict(self.__strategy.get_params())),
-            "budget": _DEFAULT_VOLATILITY,
             "buffer": _DEFAULT_BUFFER,
         }
 
@@ -434,6 +432,7 @@ class Backtest:
                     "sdate": self.__firstdate.isoformat(),
                     "edate": self.__lastdate.isoformat(),
                     "updtime": datetime.now().isoformat(),
+                    "budget": _DEFAULT_VOLATILITY,
                     "sizing": _DEFAULT_SIZING,
                     "thresh": _DEFAULT_THRESH,
                     "vparam": _DEFAULT_VPARAM,

@@ -1,15 +1,10 @@
-from sys import version_info
-from os.path import join, dirname
-
-if version_info < (3, 6):
-    raise Exception('VERSION ERROR: Python 3.6+ required')
+import os
 
 def read(fname:str) -> str:
-    
-    dir = dirname(__file__)
+    dir = os.path.dirname(__file__)
     
     return open(
-        join(dir, fname), 
+        os.path.join(dir, fname), 
         encoding='utf-8'
     ).read()
 
@@ -24,7 +19,6 @@ if __name__ == '__main__':
         description = "BacktestHub is an efficient and simple "
         "python-based backtest framework",
         long_description = read('README.md'),
-        packages = find_packages(),
+        packages = find_packages(include=['backtesthub', 'backtesthub.*']),
         version = '4.0.0',
-        
     )

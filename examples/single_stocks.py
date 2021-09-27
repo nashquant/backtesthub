@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
-import os, sys
+import os
+import sys
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
@@ -10,7 +11,7 @@ sys.path.append(
     )
 )
 
-from backtesthub.indicators import *
+from backtesthub.indicators import Buy_n_Hold
 from backtesthub.pipelines import Single
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
