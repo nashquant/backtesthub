@@ -29,9 +29,9 @@ class Calendar:
     is an environment variable], which is by default BR. 
     
     For US and BR, it is assumed that regional calendars 
-    are important, bc the most important exchanges are 
-    located at specific cities, and those are closed 
-    during local holidays.
+    are main, because the most important exchanges are 
+    located at specific cities, and they close during 
+    local holidays.
      
     """
 
