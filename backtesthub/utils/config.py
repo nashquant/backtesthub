@@ -3,9 +3,6 @@
 import os
 import itertools
 from datetime import date
-from dotenv import load_dotenv
-
-load_dotenv()
 
 _DEFAULT_MIN_SIZE: int = int(os.getenv("DEF_MIN_SIZE", "1"))
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))

@@ -6,6 +6,9 @@ from typing import Sequence
 from collections import defaultdict
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
+from dotenv import load_dotenv
+
+load_dotenv()
 
 sys.path.append(
     os.path.dirname(
