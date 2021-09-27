@@ -416,7 +416,6 @@ class Backtest:
             "pipeline": self.__pipeline.__class__.__name__,
             "model": self.__strategy.__class__.__name__,
             "params": str(dict(self.__strategy.get_params())),
-            "buffer": _DEFAULT_BUFFER,
         }
 
         self.__uid = uuid3(
@@ -433,6 +432,7 @@ class Backtest:
                     "edate": self.__lastdate.isoformat(),
                     "updtime": datetime.now().isoformat(),
                     "budget": _DEFAULT_VOLATILITY,
+                    "buffer": _DEFAULT_BUFFER,
                     "sizing": _DEFAULT_SIZING,
                     "thresh": _DEFAULT_THRESH,
                     "vparam": _DEFAULT_VPARAM,
