@@ -14,8 +14,12 @@ sys.path.append(
     )
 )
 
-from backtesthub.indicators import *
-from backtesthub.pipelines import Vertice
+from backtesthub.indicators.indicator import (
+    RevSMACross,
+)
+from backtesthub.pipelines.pipeline import (
+    Vertice,
+)
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar

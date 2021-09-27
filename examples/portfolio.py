@@ -16,9 +16,13 @@ sys.path.append(
     )
 )
 
-from backtesthub.indicators import *
+from backtesthub.indicators.indicator import (
+    Buy_n_Hold,
+)
+from backtesthub.pipelines.pipeline import (
+    Portfolio,
+)
 from backtesthub.strategy import Strategy
-from backtesthub.pipelines import Portfolio
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
 from backtesthub.utils.config import (

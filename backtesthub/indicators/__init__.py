@@ -1,1 +1,1 @@
-from .indicators import *
+from ..indicators import indicator

@@ -14,8 +14,12 @@ sys.path.append(
     )
 )
 
-from backtesthub.indicators import *
-from backtesthub.pipelines import Rolling
+from backtesthub.indicators.indicator import (
+    SMACross,
+)
+from backtesthub.pipelines.pipeline import (
+    Rolling,
+)
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar

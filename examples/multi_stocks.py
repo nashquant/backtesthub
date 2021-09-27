@@ -13,8 +13,15 @@ sys.path.append(
     )
 )
 
-from backtesthub.indicators import *
-from backtesthub.pipelines import *
+from backtesthub.indicators.indicator import (
+    Buy_n_Hold,
+    Sell_n_Hold,
+    SMARatio,
+)
+from backtesthub.pipelines.pipeline import (
+    VA_Ranking,
+    Rolling,
+)
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
@@ -88,6 +95,7 @@ class Trend_SMARatio(Strategy):
                     data=asset,
                 ),
             )
+
 
 class Hedge_Beta(Strategy):
     params = {}
