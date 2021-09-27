@@ -262,12 +262,6 @@ class Strategy(metaclass=ABCMeta):
             print(f"Data Warn!, {data} is incomplete !!")
             return 0
 
-        if not hasattr(self, "universe"):
-            self.universe = self.get_universe()
-        if not self.universe:
-            print(f"Pipe Warn!, universe is null !!")
-            return 0
-
         if method == _METHOD["EWMA"]:
             vol_target = _DEFAULT_VOLATILITY
             vol_asset = data.volatility[0]
@@ -279,7 +273,7 @@ class Strategy(metaclass=ABCMeta):
         elif method == _METHOD["EXPO"]:
             assert texpo is not None
 
-        size = signal * texpo * equity / price / len(self.universe)
+        size = signal * texpo * equity / price
 
         if np.isnan(size):
             txt=f"Error found while sizing {data}"

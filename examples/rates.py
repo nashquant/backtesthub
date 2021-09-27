@@ -86,7 +86,7 @@ class Trend_SMACross(Strategy):
                 data=asset,
                 target=self.sizing(
                     data=asset,
-                ),
+                )/len(self.universe),
             )
 
 ##########################################################

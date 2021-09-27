@@ -93,7 +93,7 @@ class Trend_SMARatio(Strategy):
                 data=asset,
                 target=self.sizing(
                     data=asset,
-                ),
+                )/len(univ),
             )
 
 
