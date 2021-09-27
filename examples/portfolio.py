@@ -134,7 +134,11 @@ class Hierarchy(Strategy):
             budget = self.scale * alloc
             self.order_target(
                 data=asset,
-                target=budget,
+                target=self.sizing(
+                    data=asset,
+                    texpo=budget,
+                    method="EXPO",
+                )
             )
 
 
