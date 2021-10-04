@@ -16,6 +16,8 @@ sys.path.append(
 
 from backtesthub.indicators.indicator import (
     SMACross,
+    KAMACross,
+    BBANDSCross,
 )
 from backtesthub.pipelines.pipeline import (
     Rolling,
@@ -53,14 +55,14 @@ config = {
 class Trend_SMACross(Strategy):
 
     params = {
-        "p1": 10,
-        "p2": 200,
+        "p": 20,
+        "sma": 5,
     }
 
     def init(self):
         self.I(
             data=self.base,
-            func=SMACross,
+            func=BBANDSCross,
             name="signal",
             **self.params,
         )
