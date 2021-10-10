@@ -15,12 +15,7 @@ sys.path.append(
 )
 
 from backtesthub.indicators.indicator import (
-    Turtle,
-    Donchian,
-    SMACross,
-    KAMACross,
-    BBANDSCross,
-    DonchianATR,
+    CROSSCORREL,
 )
 from backtesthub.pipelines.pipeline import (
     Rolling,
@@ -38,11 +33,11 @@ pd.options.mode.chained_assignment = None
 
 ######################### CONFIG #########################
 
-base = "USDBRL"
-obases = ["CARRY"]
-factor = "TREND"
-market = "FXBR"
-asset = "DOL"
+base = "IBOV"
+obases = ["BRCDS", "CARRY"]
+factor = "STATS"
+market = "EQUITYBR"
+asset = "IND"
 ohlc = ["open", "high", "low", "close"]
 
 config = {
@@ -55,18 +50,18 @@ config = {
 ##########################################################
 ##################### STRATEGY SETUP #####################
 
-class Trend_SMACross(Strategy):
 
-    params = {
-        "p": 20,
-        "sma": 5,
-        "stop": 10,
-    }
+class CrossCorrelation(Strategy):
 
     def init(self):
+
+        self.params = {
+            "base": self.bases['BRCDS']
+        }
+
         self.I(
             data=self.base,
-            func=Donchian,
+            func=CROSSCORREL,
             name="signal",
             **self.params,
         )
@@ -91,6 +86,7 @@ class Trend_SMACross(Strategy):
                     data=asset,
                 ),
             )
+
 
 ##########################################################
 ##################  DATABASE OPERATIONS ##################
@@ -151,10 +147,10 @@ calendar = Calendar(
 )
 
 backtest = Backtest(
-    strategy=Trend_SMACross,
+    strategy=CrossCorrelation,
     pipeline=Rolling,
     calendar=calendar,
-    **config
+    **config,
 )
 
 backtest.add_base(
