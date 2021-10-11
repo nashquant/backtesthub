@@ -115,10 +115,10 @@ def KAMACross(
     """
     `Kaufmann's Adaptive Moving Average (KAMA) Cross`
 
-    e.g. KAMA(10,1,30) vs. KAMA(10,2,30) is the most
-    basic KAMACross configuration.
+    e.g. KAMA(10,1,30) vs. KAMA(10,2,30) is the most basic KAMA | param (window:10, p1: 1, p2: 2, s1: 30, s2: 30)
 
-    For more information: https://corporatefinanceinstitute.com/resources/knowledge/trading-investing/kaufmans-adaptive-moving-average-kama/
+    For more information: 
+    https://corporatefinanceinstitute.com/resources/knowledge/trading-investing/kaufmans-adaptive-moving-average-kama/
 
     """
 
@@ -415,7 +415,9 @@ def CROSSCORREL(
         )
     )
 
-    return rsig * csig
+    df = rsig * csig
+
+    return df.reindex(data.index, method='ffill')
         
 
 def _resample_week(
@@ -462,7 +464,3 @@ def _resample_week(
 
     mask = df.dates.apply(lambda x: x.weekday()) > df.next.apply(lambda x: x.weekday())
     return df[mask][['open', 'high', 'low', 'close']]
-
-
-        
-            

@@ -25,6 +25,7 @@ from backtesthub.pipelines.pipeline import (
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
+from backtesthub.utils.bases import Line
 from backtesthub.utils.config import (
     _DEFAULT_URL,
     _DEFAULT_SDATE,
@@ -111,15 +112,24 @@ class Hierarchy(Strategy):
 
     def init(self):
         for asset in self.assets.values():
-            self.I(
+            signal = self.I(
                 data=asset,
                 func=Buy_n_Hold,
-                name="signal",
                 **self.params,
             )
 
-            self.V(
+            volatility = self.V(
                 data=asset,
+            )
+
+            asset.add_line(
+                name="signal",
+                line=Line(array=signal),
+            )
+
+            asset.add_line(
+                name="volatility",
+                line=Line(array=volatility),
             )
 
         self.vol_strat = self.params["vol_strat"]

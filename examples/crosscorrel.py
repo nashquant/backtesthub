@@ -20,6 +20,7 @@ from backtesthub.indicators.indicator import (
 from backtesthub.pipelines.pipeline import (
     Rolling,
 )
+from backtesthub.utils.bases import Line
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
@@ -59,15 +60,24 @@ class CrossCorrelation(Strategy):
             "base": self.bases['BRCDS']
         }
 
-        self.I(
+        signal = self.I(
             data=self.base,
             func=CROSSCORREL,
-            name="signal",
             **self.params,
         )
 
-        self.V(
+        volatility = self.V(
             data=self.base,
+        )
+        
+        self.base.add_line(
+            name="signal",
+            line=Line(array=signal),
+        )
+        
+        self.base.add_line(
+            name="volatility",
+            line=Line(array=volatility),
         )
 
         self.broadcast(

@@ -28,6 +28,7 @@ from backtesthub.pipelines.pipeline import (
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
+from backtesthub.utils.bases import Line
 from backtesthub.utils.config import (
     _DEFAULT_SDATE,
     _DEFAULT_EDATE,
@@ -58,21 +59,29 @@ config = {
 class Trend_SMACross(Strategy):
 
     params = {
-        "p": 20,
-        "sma": 5,
-        "stop": 10,
+        "p1": 10,
+        "p2": 100,
     }
 
     def init(self):
-        self.I(
+        signal = self.I(
             data=self.base,
-            func=Donchian,
-            name="signal",
+            func=SMACross,
             **self.params,
         )
 
-        self.V(
+        volatility = self.V(
             data=self.base,
+        )
+
+        self.base.add_line(
+            name="signal",
+            line=Line(array=signal),
+        )
+        
+        self.base.add_line(
+            name="volatility",
+            line=Line(array=volatility),
         )
 
         self.broadcast(

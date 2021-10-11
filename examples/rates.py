@@ -23,6 +23,7 @@ from backtesthub.pipelines.pipeline import (
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
+from backtesthub.utils.bases import Line
 from backtesthub.utils.math import fill_OHLC, rate2price
 from backtesthub.utils.config import (
     _DEFAULT_SDATE,
@@ -60,21 +61,30 @@ class Trend_SMACross(Strategy):
 
     def init(self):
         for ticker in self.assets:
-            self.I(
+            signal = self.I(
                 data=self.bases[ticker],
                 func=RevSMACross,
-                name="signal",
                 **self.params,
+            )
+
+            volatility = self.V(
+                data=self.assets[ticker],
+            )
+
+            self.bases[ticker].add_line(
+                name="signal",
+                line=Line(array=signal),
+            )
+            
+            self.assets[ticker].add_line(
+                name="volatility",
+                line=Line(array=volatility),
             )
 
             self.broadcast(
                 base=self.bases[ticker],
                 assets={ticker: self.assets[ticker]},
                 lines=["signal"],
-            )
-
-            self.V(
-                data=self.assets[ticker],
             )
 
     def next(self):

@@ -25,6 +25,7 @@ from backtesthub.pipelines.pipeline import (
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
+from backtesthub.utils.bases import Line
 from backtesthub.utils.math import adjust_stocks
 from backtesthub.utils.config import (
     _DEFAULT_SDATE,
@@ -67,22 +68,35 @@ class Trend_SMARatio(Strategy):
     def init(self):
 
         for asset in self.assets:
-            self.I(
+            ind = self.I(
                 data=self.assets[asset],
                 func=SMARatio,
-                name="indicator",
                 **self.params,
             )
 
-            self.I(
+            signal = self.I(
                 data=self.assets[asset],
                 func=Buy_n_Hold,
-                name="signal",
                 **self.params,
             )
 
-            self.V(
+            volatility = self.V(
                 data=self.assets[asset],
+            )
+
+            self.assets[asset].add_line(
+                name="indicator",
+                line=ind,
+            )
+
+            self.assets[asset].add_line(
+                name="signal",
+                line=Line(array=signal),
+            )
+            
+            self.assets[asset].add_line(
+                name="volatility",
+                line=Line(array=volatility),
             )
 
     def next(self):
@@ -102,15 +116,24 @@ class Hedge_Beta(Strategy):
 
     def init(self):
 
-        self.I(
+        signal = self.I(
             data=self.hbase,
             func=Sell_n_Hold,
-            name="signal",
             **self.params,
         )
 
-        self.V(
+        volatility = self.V(
             data=self.hbase,
+        )
+
+        self.hbase.add_line(
+            name="signal",
+            line=Line(array=signal),
+        )
+        
+        self.hbase.add_line(
+            name="volatility",
+            line=Line(array=volatility),
         )
 
         self.broadcast(

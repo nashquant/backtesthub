@@ -23,6 +23,7 @@ from backtesthub.pipelines.pipeline import (
 from backtesthub.strategy import Strategy
 from backtesthub.backtest import Backtest
 from backtesthub.calendar import Calendar
+from backtesthub.utils.bases import Line
 from backtesthub.utils.math import adjust_stocks
 from backtesthub.utils.config import (
     _DEFAULT_SDATE,
@@ -56,15 +57,24 @@ class Riskpar_BuyNHold(Strategy):
     params = {}
 
     def init(self):
-        self.I(
+        signal = self.I(
             data=self.base,
             func=Buy_n_Hold,
-            name="signal",
             **self.params,
         )
 
-        self.V(
+        volatility = self.V(
             data=self.base,
+        )
+
+        self.base.add_line(
+            name="signal",
+            line=Line(array=signal),
+        )
+        
+        self.base.add_line(
+            name="volatility",
+            line=Line(array=volatility),
         )
 
         self.broadcast(

@@ -2,6 +2,7 @@
 
 import math
 import numpy as np
+import pandas as pd
 from numbers import Number
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict, defaultdict as ddict
@@ -115,9 +116,8 @@ class Strategy(metaclass=ABCMeta):
         self,
         data: Union[Base, Asset],
         func: Callable,
-        name: Optional[str] = None,
         **kwargs: Number,
-    ):
+    ) -> pd.Series:
         """
         `Indicator Assignment Method`
 
@@ -131,9 +131,7 @@ class Strategy(metaclass=ABCMeta):
 
         The function should then perform calculations
         in a Line of the object and return an array-like
-        result containing only numbers, that then, is
-        converted to signal lines (if name is not passed, 
-        else it will assume `name`) 
+        result containing only numbers
         """
 
         try:
@@ -148,20 +146,14 @@ class Strategy(metaclass=ABCMeta):
             msg = f"Line length not compatible"
             raise ValueError(msg)
 
-        signal = Line(array=ind)
-        name = name or "signal"
-
-        data.add_line(
-            name=name,
-            line=signal,
-        )
+        return pd.Series(ind)
 
     def V(
         self,
         data: Union[Base, Asset],
         func: Callable = EWMA_volatility,
         **kwargs: Union[str, int, float],
-    ):
+    ) -> pd.Series:
         """
         `Volatility Assignment Method`
 
@@ -174,10 +166,7 @@ class Strategy(metaclass=ABCMeta):
         except Exception as e:
             raise Exception(e)
 
-        data.add_line(
-            name="volatility",
-            line=Line(array=vol),
-        )
+        return pd.Series(vol)
 
     def broadcast(
         self,
