@@ -280,9 +280,9 @@ def DonchianATR(
     signal = np.zeros(length)
 
     for i in range(1, length):
-        if smac[i] - donch._lband[i] >= mult*atr[i] and smac[i-1] - donch._lband[i-1] < mult*atr[i-1]:
+        if smac[i] - donch._lband[i] >= mult*atr._atr[i] and smac[i-1] - donch._lband[i-1] < mult*atr._atr[i-1]:
             signal[i] = 1
-        elif donch._hband[i] - smac[i] >= mult*atr[i] and donch._hband[i-1] - smac[i-1] < mult*atr[i-1]:
+        elif donch._hband[i] - smac[i] >= mult*atr._atr[i] and donch._hband[i-1] - smac[i-1] < mult*atr._atr[i-1]:
             signal[i] = -1
         else:
             signal[i] = signal[i-1]
