@@ -109,8 +109,8 @@ def KAMACross(
     p2: int,
     f1: int,
     f2: int,
-    s1: int,
-    s2: int,
+    s1: int = 30,
+    s2: int = 30,
     *args,
 ) -> pd.Series:
     """
