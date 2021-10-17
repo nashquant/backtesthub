@@ -105,9 +105,10 @@ def EMACross(
 
 def KAMACross(
     data: Union[Base, Asset],
-    window: int,
     p1: int,
     p2: int,
+    f1: int,
+    f2: int,
     s1: int,
     s2: int,
     *args,
@@ -115,7 +116,7 @@ def KAMACross(
     """
     `Kaufmann's Adaptive Moving Average (KAMA) Cross`
 
-    e.g. KAMA(10,1,30) vs. KAMA(10,2,30) is the most basic KAMA | param (window:10, p1: 1, p2: 2, s1: 30, s2: 30)
+    e.g. KAMA(10,1,30) vs. KAMA(10,2,30) is the most basic KAMA | param (p:10, p2: 10, f1: 1, f2: 2, s1: 30, s2: 30)
 
     For more information: 
     https://corporatefinanceinstitute.com/resources/knowledge/trading-investing/kaufmans-adaptive-moving-average-kama/
@@ -124,8 +125,8 @@ def KAMACross(
 
     close = pd.Series(data.close.array)
 
-    kama1 = KAMA(close, window=window, pow1=p1, pow2=s1)
-    kama2 = KAMA(close, window=window, pow1=p2, pow2=s2)
+    kama1 = KAMA(close, window=p1, pow1=f1, pow2=s1)
+    kama2 = KAMA(close, window=p2, pow1=f2, pow2=s2)
 
     return np.sign(kama1._kama - kama2._kama)
 
