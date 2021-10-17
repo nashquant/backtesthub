@@ -54,7 +54,7 @@ class Strategy(metaclass=ABCMeta):
         self.__pipeline = pipeline
         self.__bases = bases
         self.__assets = assets
-        self.__params = OrderedDict()
+        self.__params = None
 
     @abstractmethod
     def init():
@@ -138,9 +138,6 @@ class Strategy(metaclass=ABCMeta):
             ind = func(data, *kwargs.values())
         except Exception as e:
             raise Exception(e)
-
-        if kwargs:
-            self.__params.update(kwargs)
 
         if not len(data) == len(ind):
             msg = f"Line length not compatible"
@@ -385,10 +382,17 @@ class Strategy(metaclass=ABCMeta):
         )
 
     def __repr__(self):
-        return f"{self.__class__.__name__} @ {dict(self.__params)}"
+        return f"{self.__class__.__name__} @ {self.params}"
 
     def get_params(self) -> Dict[str, Number]:
-        return self.__params
+        if hasattr(self, "params"):
+            if isinstance(self.params, dict): 
+                return self.params
+        elif hasattr(self, "__params"):
+            if isinstance(self.__params, dict):
+                return self.__params
+        else:
+            return {} 
 
     def get_universe(self) -> Sequence[Asset]:
         return self.__pipeline.universe
