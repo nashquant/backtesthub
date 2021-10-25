@@ -135,8 +135,8 @@ def BBANDSCross(
     data: Union[Base, Asset],
     p: int,
     sma: int,
-    stop: int = 0,
     dev: int = 1,
+    stop: int = 0,
     *args,
 ) -> pd.Series:
     """
@@ -257,8 +257,8 @@ def DonchianATR(
     data: Union[Base, Asset],
     p: int,
     sma: int,
-    stop: int,
     mult: int,
+    stop: int,
     *args,
 ) -> pd.Series:
     """
