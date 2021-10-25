@@ -148,6 +148,7 @@ class Backtest:
             pipeline=self.__hpipeline,
             bases=self.__bases,
             assets=self.__hedges,
+            target=self.target,
         )
 
     def add_base(
