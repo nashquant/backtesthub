@@ -107,6 +107,7 @@ class Backtest:
             pipeline=self.__pipeline,
             bases=self.__bases,
             assets=self.__assets,
+            target=self.target
         )
 
     def config_hedge(
@@ -376,6 +377,10 @@ class Backtest:
     @property
     def index(self) -> Sequence[date]:
         return self.__index
+
+    @property
+    def target(self) -> float:
+        return self.__compensation * _DEFAULT_VOLATILITY
 
     @property
     def strategy(self) -> Strategy:

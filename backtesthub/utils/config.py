@@ -2,7 +2,7 @@
 
 import os
 import itertools
-from datetime import date
+from datetime import date, datetime
 
 _DEFAULT_MIN_SIZE: int = int(os.getenv("DEF_MIN_SIZE", "1"))
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
@@ -46,7 +46,7 @@ _MIN_VOL = {
     "ES": 0.12,
     "IND": 0.15,
     "DOL": 0.10,
-} ## ELIMINATE: SUBSTITUTE TO ROLLING QUANTILE ##
+}
 
 _MIN_VOL.update(
     eval(

@@ -13,7 +13,6 @@ from .pipeline import Pipeline
 from .utils.math import EWMA_volatility
 from .utils.bases import Line, Base, Asset
 from .utils.config import (
-    _DEFAULT_VOLATILITY,
     _DEFAULT_MIN_SIZE,
     _DEFAULT_CURRENCY,
     _DEFAULT_SIZING,
@@ -48,12 +47,14 @@ class Strategy(metaclass=ABCMeta):
         pipeline: Pipeline,
         bases: Dict[str, Base],
         assets: Dict[str, Asset],
+        target: float,
     ):
 
         self.__broker = broker
         self.__pipeline = pipeline
         self.__bases = bases
         self.__assets = assets
+        self.__target = target
         self.__params = None
 
     @abstractmethod
@@ -249,7 +250,7 @@ class Strategy(metaclass=ABCMeta):
             return 0
 
         if method == _METHOD["EWMA"]:
-            vol_target = _DEFAULT_VOLATILITY
+            vol_target = self.__target
             vol_asset = data.volatility[0]
             if data.asset in _MIN_VOL:
                 min_vol = _MIN_VOL[data.asset]
