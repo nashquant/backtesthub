@@ -195,18 +195,18 @@ def Turtle(
     signal = np.zeros(length)
 
     for i in range(1, length):
-        if high[i] == donch._hband[i] and high[i] > donch._hband[i]:
+        if high[i] == donch._hband[i]:
             signal[i] = 1
-        elif low[i] == donch._lband[i] and low[i] < donch._lband[i]:
+        elif low[i] == donch._lband[i]:
             signal[i] = -1
         else:
             signal[i] = signal[i-1]
 
         if stop and signal[i] == 1:
-            if low[i] <= s._lband[i]:
+            if low[i] == s._lband[i]:
                 signal[i] = 0
         elif stop and signal[i] == -1:
-            if high[i] >=s._hband[i]:
+            if high[i] ==s._hband[i]:
                 signal[i] = 0
 
     return signal
