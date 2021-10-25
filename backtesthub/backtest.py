@@ -83,7 +83,7 @@ class Backtest:
         self.__base: str = config.get("base")
         self.__hbase: str = config.get("hbase")
         self.__vertices: List[int] = config.get("vertices")
-        self.__compensation: float = config.get("compensation")
+        self.__compensation: float = config.get("compensation", 1)
 
         self.__main: Line = Line(self.__index)
         self.__bases: Dict[str, Base] = OrderedDict()
