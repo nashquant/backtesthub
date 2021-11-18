@@ -71,22 +71,6 @@ def SMARatio(
     return np.divide(sma1, sma2) - 1
 
 
-def RevSMACross(
-    data: Union[Base, Asset],
-    p1: int,
-    p2: int,
-    *args,
-) -> pd.Series:
-    """
-    `Reversed Simple Moving Average (SMA) Cross`
-    """
-
-    sma1 = pd.Series(data.close).rolling(p1).mean()
-    sma2 = pd.Series(data.close).rolling(p2).mean()
-
-    return np.sign(sma2 - sma1)
-
-
 def EMACross(
     data: Union[Base, Asset],
     p1: int,
@@ -167,7 +151,7 @@ def BBANDSCross(
             if low[i] <= s._lband[i]:
                 signal[i] = 0
         elif stop and signal[i] == -1:
-            if high[i] >=s._hband[i]:
+            if high[i] >= s._hband[i]:
                 signal[i] = 0
 
     return signal
@@ -188,8 +172,8 @@ def Turtle(
     close = pd.Series(data.close.array)
     low = pd.Series(data.low.array)
 
-    donch = DONCH(high,low,close,window=p)
-    s = DONCH(high,low,close,window=stop)
+    donch = DONCH(high, low, close, window=p)
+    s = DONCH(high, low, close, window=stop)
 
     length = len(close)
     signal = np.zeros(length)
@@ -206,10 +190,11 @@ def Turtle(
             if low[i] == s._lband[i]:
                 signal[i] = 0
         elif stop and signal[i] == -1:
-            if high[i] ==s._hband[i]:
+            if high[i] == s._hband[i]:
                 signal[i] = 0
 
     return signal
+
 
 def Donchian(
     data: Union[Base, Asset],
@@ -228,10 +213,10 @@ def Donchian(
     low = pd.Series(data.low.array)
 
     smac = close.rolling(sma).mean()
-    donch = DONCH(high,low,close,window=p)
+    donch = DONCH(high, low, close, window=p)
     mid = donch.donchian_channel_mband()
 
-    s = DONCH(high,low,close,window=stop)
+    s = DONCH(high, low, close, window=stop)
 
     length = len(close)
     signal = np.zeros(length)
@@ -248,10 +233,11 @@ def Donchian(
             if low[i] <= s._lband[i]:
                 signal[i] = 0
         elif stop and signal[i] == -1:
-            if high[i] >=s._hband[i]:
+            if high[i] >= s._hband[i]:
                 signal[i] = 0
 
     return signal
+
 
 def DonchianATR(
     data: Union[Base, Asset],
@@ -270,12 +256,12 @@ def DonchianATR(
     close = pd.Series(data.close.array)
     low = pd.Series(data.low.array)
 
-    atr = ATR(high,low,close)
+    atr = ATR(high, low, close)
 
-    smac = close.rolling(sma).mean() 
-    
-    donch = DONCH(high,low,close,window=p)
-    s = DONCH(high,low,close,window=stop)
+    smac = close.rolling(sma).mean()
+
+    donch = DONCH(high, low, close, window=p)
+    s = DONCH(high, low, close, window=stop)
 
     length = len(close)
     signal = np.zeros(length)
@@ -292,7 +278,7 @@ def DonchianATR(
             if low[i] <= s._lband[i]:
                 signal[i] = 0
         elif stop and signal[i] == -1:
-            if high[i] >=s._hband[i]:
+            if high[i] >= s._hband[i]:
                 signal[i] = 0
 
     return signal
@@ -315,12 +301,12 @@ def CRSI(
     close = pd.Series(data.close.array)
     low = pd.Series(data.low.array)
 
-    rsi = RSI(close, window = p)
-    s = DONCH(high,low,close,window=stop)
+    rsi = RSI(close, window=p)
+    s = DONCH(high, low, close, window=stop)
 
     length = len(close)
     signal = np.zeros(length)
-    
+
     for i in range(1, length):
         if rsi._rsi[i] <= lower and rsi._rsi[i-1] > lower:
             signal[i] = 1
@@ -333,10 +319,11 @@ def CRSI(
             if low[i] <= s._lband[i]:
                 signal[i] = 0
         elif stop and signal[i] == -1:
-            if high[i] >=s._hband[i]:
+            if high[i] >= s._hband[i]:
                 signal[i] = 0
 
     return signal
+
 
 def CBBANDS(
     data: Union[Base, Asset],
@@ -354,12 +341,12 @@ def CBBANDS(
     close = pd.Series(data.close.array)
     low = pd.Series(data.low.array)
 
-    bbands = BBANDS(close, window = p, window_dev=dev)
-    s = DONCH(high,low,close,window=stop)
+    bbands = BBANDS(close, window=p, window_dev=dev)
+    s = DONCH(high, low, close, window=stop)
 
     length = len(close)
     signal = np.zeros(length)
-    
+
     for i in range(1, length):
         if bbands._lband[i] >= close[i] and bbands._lband[i-1] < close[i-1]:
             signal[i] = 1
@@ -372,7 +359,7 @@ def CBBANDS(
             if low[i] <= s._lband[i]:
                 signal[i] = 0
         elif stop and signal[i] == -1:
-            if high[i] >=s._hband[i]:
+            if high[i] >= s._hband[i]:
                 signal[i] = 0
 
     return signal
@@ -403,14 +390,14 @@ def CROSSCORREL(
 
     rsig = np.sign(
         abs_rb.where(
-            abs_rb > minRet, 
+            abs_rb > minRet,
             0
         )
     )
 
     csig = np.sign(
         abs_corr.where(
-            abs_corr > minCorr, 
+            abs_corr > minCorr,
             0
         )
     )
@@ -418,12 +405,11 @@ def CROSSCORREL(
     df = rsig * csig
 
     return df.reindex(data.index, method='ffill')
-        
+
 
 def _resample_week(
     data: Union[Base, Asset],
 ) -> pd.Series:
-
     """
     `Resample Daily->Weekly`
 
@@ -454,13 +440,14 @@ def _resample_week(
     df.index = pd.to_datetime(df.index)
 
     years = [y for y in range(df.index[-1].year-1, df.index[-1].year+1)]
-    calendar = BR(state='SP', years = years)
+    calendar = BR(state='SP', years=years)
 
     holidays = list(calendar.keys())
 
     df['dates'] = df.index
     df['next'] = df.dates.shift(-1)
-    df['next'][-1] = workday(df.dates[-1], 1, holidays = holidays)
+    df['next'][-1] = workday(df.dates[-1], 1, holidays=holidays)
 
-    mask = df.dates.apply(lambda x: x.weekday()) > df.next.apply(lambda x: x.weekday())
+    mask = df.dates.apply(lambda x: x.weekday()) > df.next.apply(
+        lambda x: x.weekday())
     return df[mask][['open', 'high', 'low', 'close']]

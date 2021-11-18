@@ -276,7 +276,7 @@ class Backtest:
         `Main Event Loop Run`
         
         This method is the core function of the
-        whole backtest engine, which have the
+        whole backtest engine, which has the
         following steps:
 
         1) Make sure assets have been fed to it.

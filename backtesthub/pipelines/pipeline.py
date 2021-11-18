@@ -57,7 +57,7 @@ class Rolling(Pipeline):
 
     def next(self) -> Sequence[Asset]:
 
-        while self.get_date() > self.maturity:
+        while self.get_lagged_date() > self.maturity:
             self.broker.close(self.curr)
             self.apply_roll()
 
@@ -109,7 +109,7 @@ class Vertice(Pipeline):
 
     def next(self) -> Sequence[Asset]:
 
-        while self.get_date() > self.roll_date:
+        while self.get_lagged_date() > self.roll_date:
             self.broker.close(self.curr)
             self.apply_roll()
 
@@ -200,7 +200,7 @@ class Ranking(Pipeline):
 
     def next(self) -> Sequence[Asset]:
 
-        if self.date.weekday() > self.get_date(lag=1).weekday():
+        if self.date.weekday() > self.get_lagged_date(lag=1).weekday():
 
             self.actives = {
                 asset.ticker: asset
@@ -277,7 +277,7 @@ class VA_Ranking(Pipeline):
 
     def next(self) -> Sequence[Asset]:
 
-        if self.date.weekday() > self.get_date(lag=1).weekday():
+        if self.date.weekday() > self.get_lagged_date(lag=1).weekday():
 
             self.actives = {
                 asset.ticker: asset

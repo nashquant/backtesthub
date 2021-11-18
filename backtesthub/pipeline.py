@@ -122,7 +122,7 @@ class Pipeline(metaclass=ABCMeta):
     def __repr__(self):
         return f"{self.__class__.__name__}<Universe: {self.universe}>"
 
-    def get_date(self, lag: int = _DEFAULT_LAG) -> date:
+    def get_lagged_date(self, lag: int = _DEFAULT_LAG) -> date:
         """
         `Get Date Method`
 
