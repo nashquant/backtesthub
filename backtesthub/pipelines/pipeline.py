@@ -18,7 +18,7 @@ class Single(Pipeline):
     just returns the universe as equals to the  full assets set . It's 
     named "single" because it is most useful when backtesting a single 
     asset strategy.
-    
+
     """
 
     def init(self):
@@ -37,11 +37,11 @@ class Rolling(Pipeline):
     Rolling pipeline is designed to make front month futures rolling, 
     i.e., it assumes the closest to maturity contract will always be
     the active - and the one we're interested in trading. 
-    
+
     It returns as the universe a [list of] single asset, and does the 
     job of monitoring the rolling date, in order to update the universe
     and close positions in older contracts. 
-    
+
     It is expected to be used only for futures derivatives whose
     liquidity is concentrated in the front contract.
 
@@ -49,8 +49,9 @@ class Rolling(Pipeline):
     Users can configure the value of "LAG" by changing the value of
     "DEF_LAG" environment variable.
 
-    
+
     """
+
     def init(self):
         self.build_chain(), self.apply_roll()
         self.universe = []
@@ -318,6 +319,7 @@ class VA_Ranking(Pipeline):
 
         return self.universe
 
+
 class Portfolio(Pipeline):
 
     """
@@ -325,7 +327,7 @@ class Portfolio(Pipeline):
 
     Extends from the Base Pipeline Class. It works together 
     with Hierarchy Strategy defined at ~/examples/portfolio.py
-    
+
     From the beggining of the fund we opted to have an Static 
     Hierarchy Risk Parity (HRP - there are lots of reference to 
     this topic), since it combined simplicity and flexibility to 
@@ -334,7 +336,7 @@ class Portfolio(Pipeline):
     specific in the allocation of the lower hierarchy levels (those 
     are pure risk parity based, i.e., allocation is the same for
     each "child" and defined by the upper level's risk budget). 
-    
+
     This approach DOES NOT try to maximize the expected returns, 
     instead its based on the idea that, ex-ante, we cannot know 
     which models will outperform, but we acknowledge that models
@@ -351,7 +353,7 @@ class Portfolio(Pipeline):
     to get a higher allocation, while the organization defines
     the overall risk budget, and how it is divided in the upper
     levels so that it reflects best the desired risk profile 
-    
+
     For instance, we like trend-following properties, so we want 
     our fund to have a higher share of it overall, that's why it
     receives >60% risk budget (highest level). However, for the 
@@ -365,7 +367,7 @@ class Portfolio(Pipeline):
 
     OBS: STILL PENDING DEVELOPMENT OF A RISK REDISTRIBUITION 
     SCHEME IN CASE STRATEGIES START/END IN DIFERENT PERIODS...   
-    
+
     """
 
     def init(self):
