@@ -286,29 +286,3 @@ df, rec = res["quotas"], res["records"]
 strat.set_index("uid", inplace=True)
 df.set_index("date", inplace=True)
 rec.set_index("date", inplace=True)
-
-##########################################################
-##################### RESULTS OUTPUT #####################
-
-with engine.connect().execution_options(autocommit=True) as conn:
-    conn.execute(f"DELETE FROM quant._Strategies WHERE uid IN ('{strat_meta['uid']}') ")
-    conn.execute(f"DELETE FROM quant._Quotas WHERE uid IN ('{strat_meta['uid']}')")
-    conn.execute(f"DELETE FROM quant._Positions WHERE uid IN ('{strat_meta['uid']}')")
-
-strat.to_sql(
-    "_Strategies",
-    con=engine,
-    if_exists="append",
-)
-
-df.to_sql(
-    "_Quotas",
-    con=engine,
-    if_exists="append",
-)
-
-rec.to_sql(
-    "_Positions",
-    con=engine,
-    if_exists="append",
-)
