@@ -3,6 +3,7 @@
 import os
 import itertools
 from datetime import date, datetime
+from itertools import product
 
 _DEFAULT_MIN_SIZE: int = int(os.getenv("DEF_MIN_SIZE", "1"))
 _DEFAULT_CURRENCY: str = str(os.getenv("DEF_CURRENCY", "BRL"))
@@ -130,3 +131,15 @@ _RATESLIKE = (
     "DAP",
     "DDI",
 )
+
+_YRS = list(
+    range(_DEFAULT_SDATE.year, _DEFAULT_EDATE.year + 1)
+)
+
+_QRS = list(
+    ['Q1','Q2','Q3', 'Q4']
+)
+
+_YQRS = [
+    f'{y}{q}' for y, q in list(product(_YRS,_QRS)) 
+]
