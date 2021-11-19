@@ -25,7 +25,7 @@ from .utils.config import (
     _DEFAULT_HEDGE,
     _DEFAULT_SIZING,
     _DEFAULT_THRESH,
-    _DEFAULT_VPARAM,
+    _DEFAULT_SMOOTH,
     _DEFAULT_MAX_LOSS,
     _DEFAULT_VOLATILITY,
     _DEFAULT_CARRY,
@@ -441,7 +441,7 @@ class Backtest:
                     "buffer": _DEFAULT_BUFFER,
                     "sizing": _DEFAULT_SIZING,
                     "thresh": _DEFAULT_THRESH,
-                    "vparam": _DEFAULT_VPARAM,
+                    "vparam": _DEFAULT_SMOOTH,
                     "bookname": self.bookname,
                     "compensation": self.__compensation,
                 }

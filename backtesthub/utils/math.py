@@ -9,13 +9,13 @@ from typing import Union, Sequence
 
 from .bases import Base, Asset
 from .config import (
-    _DEFAULT_VPARAM,
+    _DEFAULT_SMOOTH,
 )
 
 
 def EWMA(
     data: Union[Base, Asset],
-    alpha: float = _DEFAULT_VPARAM,
+    alpha: float = _DEFAULT_SMOOTH,
 ) -> pd.Series:
 
     """
@@ -44,7 +44,7 @@ def EWMA(
 
 def EWMA_volatility(
     data: Union[Base, Asset],
-    alpha: float = _DEFAULT_VPARAM,
+    alpha: float = _DEFAULT_SMOOTH,
 ) -> pd.Series:
 
     """
