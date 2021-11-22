@@ -31,7 +31,7 @@ class Line(np.ndarray):
     coordinated through a buffer attribute, which starts 
     at some default value and gets incremented by the 
     simulation/backtest main event loop. 
-    
+
     E.g. for daily signals, reasonable values for initial 
     buffer are ~200, because most simulations need at least 
     200 data-days points to be able to calculate metrics 
@@ -61,7 +61,7 @@ class Line(np.ndarray):
        where n is any integer representing # of days forward 
        (previous, if negative). It is set to start at "_DEF_BUFFER" 
        environment variable, which by default is set to 200.
-       
+
     NOTE: method "self.next()" controls the current state of buffer, 
     and is directly controlled by the event loop at backtesthub.backtest 
     main function, in order to maintain synchonism at all lines held by 
@@ -90,7 +90,7 @@ class Line(np.ndarray):
     def __repr__(self):
         beg = _DEFAULT_BUFFER
         end = self.__buffer
-        return repr(self.__array[beg : end + 1])
+        return repr(self.__array[beg: end + 1])
 
     def next(self):
         self.__buffer += 1
@@ -251,6 +251,7 @@ class Data:
         lines = self.__lines.keys()
         return tuple(l for l in lines if not l.startswith("__"))
 
+
 class Base(Data):
 
     """
@@ -259,7 +260,7 @@ class Base(Data):
     Base extends `Data` to create an unique asset class that is intended 
     to hold prices data that are not supposed to be used for trading 
     purposes, but rather, data structures that are used to:
-    
+
     1) Signal generation, 
     2) Currency exchange, 
     3) Volatility Estimation,
@@ -269,7 +270,7 @@ class Base(Data):
     For example, when sizing a contract for USDBRL Futures, we might be 
     tempted to use this contract own data to generate a reasonable volatility 
     estimation or to generate trading signals for our system, for example. 
-    
+
     However, this might lead to severe inconsistencies, because USDBRL futures 
     only have reliable price data for the period in which the contract is being 
     "actively" trading, which is the last month preceeding maturity. Therefore, 
@@ -304,6 +305,7 @@ class Base(Data):
     def ticker(self) -> str:
         return self.__ticker
 
+
 class Asset(Base):
 
     """
@@ -312,7 +314,7 @@ class Asset(Base):
     Asset Extends `Base` including necessary features to
     classify (stocklike or futureslike) and calculate PnL 
     of those tradable assets (commission, multiplier, etc.). 
-    
+
     Parameters
     -----------
 
