@@ -152,7 +152,7 @@ def rate2price(
     data: pd.DataFrame,
     maturity: date,
     holidays: Sequence[date] = [],
-    contract_size: float = float("10e5"),
+    contract_size: float = float("10e4"),
 ):
 
     """
