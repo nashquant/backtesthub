@@ -700,16 +700,16 @@ class Broker:
         return self.__cash[_DEFAULT_BUFFER : self.__buffer + 1]
 
     @property
-    def open(self) -> List[Number]:
-        return self.__open[_DEFAULT_BUFFER : self.__buffer + 1]
-
-    @property
     def equity(self) -> List[Number]:
         return self.__equity[_DEFAULT_BUFFER : self.__buffer + 1]
 
     @property
     def quotas(self) -> List[Number]:
         return 1000 * self.equity / self.__startcash
+    
+    @property
+    def open(self) -> List[Number]:
+        return 1000 * self.__open[_DEFAULT_BUFFER : self.__buffer + 1] / self.__startcash
 
     @property
     def cum_return(self) -> Number:
