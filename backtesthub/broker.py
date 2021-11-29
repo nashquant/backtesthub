@@ -14,6 +14,7 @@ from .position import Position
 from .utils.bases import Line, Base, Asset
 from .utils.config import (
     _DEFAULT_CURRENCY,
+    _DEFAULT_SMOOTH,
     _DEFAULT_BUFFER,
     _DEFAULT_CRATE,
     _DEFAULT_CASH,
@@ -372,20 +373,56 @@ class Broker:
         exec_price = 11
         curr_close = 12
 
-        PNL = 90*(12-11) + 10 *(12-10), right?
+        PNL = 90*(12-11) + 10 *(12-10) = 110, right?
 
         But we're actually doing this in three stages:
 
-        1) Beg of period (or BoP): 10*(10.5 - 10)
-        2) Execution             : 90*(10.5 - 11)
-        3) End of period (or EoP): 100*(12 - 10.5)
+        1) Beg of period (or BoP): 10*(10.5 - 10) = 5
+        2) Execution             : 90*(10.5 - 11) = -45
+        3) End of period (or EoP): 100*(12 - 10.5) = 150
 
-        See these two PNL account methods match!
+        See these two PNL account methods match! This
+        is no coincidence, the methods are algebraically 
+        equivalent.
 
         Finally, after EoP calculations, this method
         stores the current state of all positions info,
         size, pnl breakdown, etc. into a dictionary of
         "records".
+        
+        When we have a PNL in a currency other than
+        "DEFAULT_CURRENCY", it is assumed we need to 
+        convert the resulting PNL (at close) using the 
+        currency exchange closing price!
+        
+        Take an extension of the previous example:
+        
+        Suppose PNL 110 is in USD [but our broker
+        operates in BRL] and assume USDBRL = 4.
+        Therefore, PNL = 440 BRL.
+        
+        But we're actually doing this in three stages:
+
+        1) Beg of period (or BoP): 10*(10.5 - 10) * 4 = 20
+        2) Execution             : 90*(10.5 - 11) * 4 = -180
+        3) End of period (or EoP): 100*(12 - 10.5) * 4 = 600
+        
+        We acknowledge that this approach has a subtle flaw:  we're
+        wrongly assuming closing price of the USDBRL is known from 
+        the BoP and Execution (which occurs at opening in our setting). 
+        
+        We could implement ways to account for that, but it's not
+        necessary. We argue that since the FX conversion is only 
+        applied at close, the final PNL result of this method is 
+        still correct (se that only close prices matters anyways!), 
+        and even though its intermediate result (equity and cash @ open) 
+        may be wrongly interpreted, it remains a very good proxy, and 
+        won't influence the actual PNL.
+        
+        In future updates we'll solve this issue by implementing a
+        fxpnl variable that accounts for the FX difference between 
+        open and close, allowing a proper interpretation for open 
+        equity/cash.   
 
         """
 
@@ -569,7 +606,7 @@ class Broker:
                 )
                 df["ret"] = df.close.pct_change()
                 df["mret"] = df.mclose.pct_change()
-                df["corrl"] = df.ret.ewm(alpha=0.05).corr(df.mret)
+                df["corrl"] = df.ret.ewm(alpha=_DEFAULT_SMOOTH).corr(df.mret)
                 df["beta"] = df.corrl * df.vol / df.mvol
 
                 data.add_line("beta", Line(df.beta, buffer=data.buffer))
@@ -620,7 +657,7 @@ class Broker:
                 )
                 df["ret"] = df.close.pct_change()
                 df["mret"] = df.mclose.pct_change()
-                df["corrl"] = df.ret.ewm(alpha=0.05).corr(df.mret)
+                df["corrl"] = df.ret.ewm(alpha=_DEFAULT_SMOOTH).corr(df.mret)
                 df["beta"] = df.corrl * df.vol / df.mvol
 
                 data.add_line("beta", Line(df.beta, buffer=data.buffer))
