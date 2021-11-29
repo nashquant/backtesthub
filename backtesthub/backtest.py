@@ -34,6 +34,7 @@ from .utils.config import (
     _DEFAULT_MARKET,
 )
 
+
 class Backtest:
 
     """
@@ -82,6 +83,7 @@ class Backtest:
         self.__hedge: str = config.get("hedge")
         self.__base: str = config.get("base")
         self.__hbase: str = config.get("hbase")
+        self.__hmethod: str = config.get("hmethod", _DEFAULT_HEDGE)
         self.__vertices: List[int] = config.get("vertices")
         self.__compensation: float = config.get("compensation", 1)
 
@@ -179,7 +181,7 @@ class Backtest:
         may want to define a base for things such 
         as signal generation, currency conversion, 
         volatility estimation, etc. 
-        
+
         More info @ backtesthub/utils/bases.py  
         """
 
@@ -222,7 +224,7 @@ class Backtest:
         All assets will be accessible by pointer/
         reference by both the `Broker` and the 
         `Pipeline` objects.
-        
+
         More info @ backtesthub/utils/bases.py. 
         """
 
@@ -271,10 +273,9 @@ class Backtest:
         )
 
     def run(self) -> Dict[str, pd.DataFrame]:
-        
         """
         `Main Event Loop Run`
-        
+
         This method is the core function of the
         whole backtest engine, which has the
         following steps:
@@ -282,7 +283,7 @@ class Backtest:
         1) Make sure assets have been fed to it.
 
         2) Initialize Pipeline(s) and Strategy(ies).
-        
+
         3) For each day being an element of the
            `global index`, apply the following
            sequence:
@@ -295,7 +296,7 @@ class Backtest:
             3.6) If not advance date and get back to 3.1;
 
         4) Return all relevant information in a organized manner.
-        
+
         """
 
         if not self.__assets:
@@ -371,7 +372,7 @@ class Backtest:
             BETA="#",
         )
         if self.__hedge:
-            book += f"{mapper[_DEFAULT_HEDGE]}{self.__hedge}"
+            book += f"{mapper[self.__hmethod]}{self.__hedge}"
 
         return book
 

@@ -2,7 +2,7 @@
 
 import os
 import itertools
-from datetime import date, datetime
+from datetime import date
 from itertools import product
 
 _DEFAULT_MIN_SIZE: int = int(os.getenv("DEF_MIN_SIZE", "1"))
@@ -112,12 +112,6 @@ _COMMTYPE = dict(
 _METHOD = dict(
     EXPO="EXPO",
     EWMA="EWMA",
-)
-
-
-_HMETHOD = dict(
-    EXPO="EXPOSITION",
-    BETA="BETA",
 )
 
 _STATUS = dict(
