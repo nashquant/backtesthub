@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 import math
+import numpy as np
 import pandas as pd
 from holidays import BR
 from datetime import date
@@ -74,8 +75,10 @@ def EWMA_volatility(
     elif "close" in schema:
         returns = data.close.series.pct_change()
     else:
-        msg = "Close not in Schema"
-        raise ValueError(msg)
+        raise ValueError("Close not in Schema")
+    
+    ## unchanged returns aren't significant
+    returns[returns == 0] = np.nan
 
     return returns.ewm(alpha=alpha).std() * math.sqrt(252)
 
