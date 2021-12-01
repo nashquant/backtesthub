@@ -475,6 +475,7 @@ class Broker:
                         "refVol": data.volatility[0],
                         "target": target,
                         "texpo": texpo,
+                        "equity": self.curr_equity,
                     }
                 )
             else:
@@ -493,6 +494,7 @@ class Broker:
                         "refVol": data.volatility[0],
                         "target": -target,
                         "texpo": texpo,
+                        "equity": self.curr_equity,
                     }
                 )
 
