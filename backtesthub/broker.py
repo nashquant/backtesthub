@@ -471,8 +471,8 @@ class Broker:
                         "tpnl": self.__tpnl[ticker],
                         "cpnl": self.__cpnl[ticker],
                         "pnl": self.__pnl[ticker],
-                        "signal": data.signal[0],
-                        "refvol": data.volatility[0],
+                        "sign": data.signal[0],
+                        "refVol": data.volatility[0],
                         "target": target,
                         "texpo": texpo,
                     }
@@ -489,8 +489,8 @@ class Broker:
                         "tpnl": self.__tpnl[ticker],
                         "cpnl": self.__cpnl[ticker],
                         "pnl": self.__pnl[ticker],
-                        "signal": -data.signal[0],
-                        "refvol": data.volatility[0],
+                        "sign": -data.signal[0],
+                        "refVol": data.volatility[0],
                         "target": -target,
                         "texpo": texpo,
                     }

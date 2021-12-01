@@ -28,7 +28,7 @@ _DEFAULT_LIQTHRESH: float = float(eval(os.getenv("DEF_LIQTHRESH", "0.05")))
 _DEFAULT_RATESDAY: int = int(eval(os.getenv("DEF_RATESD", "30")))
 _DEFAULT_RATESMONTH: int = int(eval(os.getenv("DEF_RATESM", "6")))
 _DEFAULT_THRESH: float = float(os.getenv("DEF_THRESH", "0.2"))
-_DEFAULT_SMOOTH: float = float(os.getenv("DEF_VPARAM", "0.03")) ## 30 days
+_DEFAULT_SMOOTH: float = float(os.getenv("DEF_VPARAM", "0.05"))
 _DEFAULT_LAG: int = int(os.getenv("DEF_LAG", "3"))
 _DEFAULT_ECHO: bool = bool(os.getenv("DEF_ECHO", "True"))
 _DEFAULT_MAX_LOSS: float = float(os.getenv("DEF_MAX_LOSS", "-99"))
@@ -125,15 +125,3 @@ _RATESLIKE = (
     "DAP",
     "DDI",
 )
-
-_YRS = list(
-    range(_DEFAULT_SDATE.year, _DEFAULT_EDATE.year + 1)
-)
-
-_QRS = list(
-    ['Q1','Q2','Q3', 'Q4']
-)
-
-_YQRS = [
-    f'{y}{q}' for y, q in list(product(_YRS,_QRS)) 
-]
