@@ -13,13 +13,13 @@ This project attempts to merge ideas from the two best python backtest framework
 Note: The project is still going under several improvements. Do not use it without reading the comments on code!! - Important simplyfing assumptions and details on inner workings are explained in detail.
 
 ## Setup
-
 Conda
+```
 # Create a new environment
 conda create -name backtest
 source activate backtest
-# Install libraries needed to run code within environment
+# Install libraries 
 pip install -r requirements.txt
-# Run setup.py and you should be good to go!
+# Install setup.py and enjoy!
 python setup.py install
-
+```
