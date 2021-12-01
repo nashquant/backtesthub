@@ -10,7 +10,7 @@ Backtesthub is a simple and efficient backtest framework, built upon numpy and p
 
 This project attempts to merge ideas from the two best python backtest frameworks _imo_ [[backtrader](https://www.backtrader.com/) and [backtesting](https://github.com/nashquant/backtesting.py)], and introduces some ideas I think could've implemented on both (e.g. broadcasting, base/asset separation, etc.)
 
-Note: The project is still going under several improvements. Do not use it without reading the comments on code!! - Important simplyfing assumptions and details on inner workings are explained in detail.
+Note: The project is still going under several improvements. Do not use it without reading the comments on code!! - Important simplyfing assumptions and inner workings are explained in detail there.
 
 ## Setup
 Conda
