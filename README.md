@@ -8,7 +8,7 @@ Backtesthub is a simple and efficient backtest framework, built upon numpy and p
 3) Manage orders w/ commission & slippage schemes; 
 4) Output backtest metrics for evaluation.
 
-This project attempts to merge ideas from the two best python backtest frameworks _imo_ [[backtrader](https://www.backtrader.com/) and [backtesting](https://github.com/nashquant/backtesting.py)], and introduces some ideas I think could've implemented on both (e.g. broadcasting, base/asset separation, etc.)
+This project attempts to merge ideas from the two best python backtest frameworks _imo_ [[backtrader](https://www.backtrader.com/) and [backtesting](https://github.com/nashquant/backtesting.py)], and introduces some ideas I think could've been implemented on both (e.g. broadcasting, base/asset separation, etc.)
 
 Note: The project is still going under several improvements. Do not use it without reading the comments on code!! - Important simplyfing assumptions and inner workings are explained in detail there.
 
