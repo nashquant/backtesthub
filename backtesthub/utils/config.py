@@ -43,11 +43,7 @@ _DEFAULT_URL = {
     "database": str(os.getenv("DB_DATABASE", "")),
 }
 
-_MIN_VOL = {
-    "ES": 0.12,
-    "IND": 0.15,
-    "DOL": 0.10,
-}
+_MIN_VOL = {}
 
 _MIN_VOL.update(
     eval(
