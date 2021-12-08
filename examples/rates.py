@@ -1,21 +1,20 @@
 #! /usr/bin/env python3
 
-import os, sys
+import os
+import sys
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 from dotenv import load_dotenv
 
+file_dir = os.path.dirname(__file__)
+base_dir = os.path.dirname(file_dir)
+
+sys.path.append(base_dir)
 load_dotenv()
 
-sys.path.append(
-    os.path.dirname(
-        os.path.dirname(__file__),
-    )
-)
-
 from backtesthub.indicators.indicator import (
-    RevSMACross,
+    SMACross,
 )
 from backtesthub.pipelines.pipeline import (
     Vertice,
@@ -61,9 +60,14 @@ class Trend_SMACross(Strategy):
 
     def init(self):
         for ticker in self.assets:
-            signal = self.I(
+            
+            ## Upward move in rates,
+            ## implies downward move
+            ## in price -> revert sig.
+            
+            signal = -self.I(
                 data=self.bases[ticker],
-                func=RevSMACross,
+                func=SMACross,
                 **self.params,
             )
 
@@ -108,16 +112,21 @@ engine = create_engine(
     echo=False,
 )
 
+base_hist = os.getenv("BASE_HIST")
+comm_meta = os.getenv("COMM_META")
+fut_meta = os.getenv("FUT_META")
+fut_hist = os.getenv("FUT_HIST")
+
 carry_sql = (
-    "SELECT date, open, high, low, close FROM quant.IndexesHistory "
+    f"SELECT date, open, high, low, close FROM {base_hist} "
     f"WHERE ticker = 'CARRY' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
 meta_sql = (
     "SELECT f.ticker as ticker, c.currency as curr, c.multiplier as mult, "
-    "f.endDate as mat FROM quant.Commodities c "
-    "INNER JOIN quant.Futures f ON c.ticker = f.commodity "
+    f"f.endDate as mat FROM {comm_meta} c "
+    f"INNER JOIN {fut_meta} f ON c.ticker = f.commodity "
     f"WHERE c.ticker IN ('{asset}') AND f.ticker LIKE '%%{tenor}%%' "
     f"AND f.endDate > '{_DEFAULT_SDATE}'"
     "ORDER BY mat"
@@ -125,7 +134,7 @@ meta_sql = (
 
 price_sql = (
     "SELECT ticker, date, open, high, low, close "
-    "FROM quant.FuturesHistory f "
+    f"FROM {fut_hist} f "
     f"WHERE f.commodity = '{asset}' AND f.ticker LIKE '%%{tenor}%%' "
     f"AND date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )

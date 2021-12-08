@@ -1,26 +1,20 @@
 #! /usr/bin/env python3
 
-import os, sys
+import os
+import sys
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 from dotenv import load_dotenv
 
+file_dir = os.path.dirname(__file__)
+base_dir = os.path.dirname(file_dir)
+
+sys.path.append(base_dir)
 load_dotenv()
 
-sys.path.append(
-    os.path.dirname(
-        os.path.dirname(__file__),
-    )
-)
-
 from backtesthub.indicators.indicator import (
-    Turtle,
-    Donchian,
     SMACross,
-    KAMACross,
-    BBANDSCross,
-    DonchianATR,
 )
 from backtesthub.pipelines.pipeline import (
     Rolling,
@@ -110,29 +104,34 @@ engine = create_engine(
     echo=False,
 )
 
+base_hist = os.getenv("BASE_HIST")
+comm_meta = os.getenv("COMM_META")
+fut_meta = os.getenv("FUT_META")
+fut_hist = os.getenv("FUT_HIST")
+
 base_sql = (
-    "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
+    f"SELECT date, ticker, open, high, low, close FROM {base_hist} "
     f"WHERE ticker = '{base}' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
 obase_sql = (
-    "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
+    f"SELECT date, ticker, open, high, low, close FROM {base_hist} "
     f"WHERE ticker IN ({str(obases)[1:-1]}) AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
 meta_sql = (
-    "SELECT f.ticker as ticker, c.currency as curr, c.multiplier as mult, "
-    "f.endDate as mat FROM quant.Commodities c "
-    "INNER JOIN quant.Futures f ON c.ticker = f.commodity "
+    f"SELECT f.ticker as ticker, c.currency as curr, c.multiplier as mult, "
+    f"f.endDate as mat FROM {comm_meta} c "
+    f"INNER JOIN {fut_meta} f ON c.ticker = f.commodity "
     f"WHERE c.ticker IN ('{asset}') AND f.endDate > '{_DEFAULT_SDATE}' "
     "ORDER BY mat"
 )
 
 price_sql = (
     "SELECT ticker, date, open, high, low, close "
-    "FROM quant.FuturesHistory f "
+    f"FROM {fut_hist} f "
     f"WHERE f.commodity = '{asset}' AND "
     f"date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )

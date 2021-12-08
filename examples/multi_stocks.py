@@ -1,17 +1,16 @@
 #! /usr/bin/env python3
-import os, sys
+import os
+import sys
 import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 from dotenv import load_dotenv
 
-load_dotenv()
+file_dir = os.path.dirname(__file__)
+base_dir = os.path.dirname(file_dir)
 
-sys.path.append(
-    os.path.dirname(
-        os.path.dirname(__file__),
-    )
-)
+sys.path.append(base_dir)
+load_dotenv()
 
 from backtesthub.indicators.indicator import (
     Buy_n_Hold,
@@ -167,9 +166,16 @@ engine = create_engine(
     echo=False,
 )
 
+base_meta = os.getenv("BASE_META")
+base_hist = os.getenv("BASE_HIST")
+comm_meta = os.getenv("COMM_META")
+fut_meta = os.getenv("FUT_META")
+fut_hist = os.getenv("FUT_HIST")
+stocks_hist = os.getenv("STK_HIST")
+
 hbase_sql = (
     "SELECT date, open, high, low, close "
-    "FROM quant.IndexesHistory "
+    f"FROM {base_hist} "
     f"WHERE ticker = '{hbase}' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
@@ -177,7 +183,7 @@ hbase_sql = (
 
 carry_sql = (
     "SELECT date, open, high, low, close "
-    "FROM quant.IndexesHistory "
+    f"FROM {base_hist} "
     f"WHERE ticker = 'CARRY' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
@@ -185,21 +191,21 @@ carry_sql = (
 price_sql = (
     "SELECT date, ticker, open, high, low, close, "
     "returns, liquidity "
-    "FROM MultiStocksHistory "
+    f"FROM {stocks_hist} "
     f"WHERE date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
 hmeta_sql = (
     "SELECT f.ticker as ticker, c.currency as curr, c.multiplier as mult, "
-    "f.endDate as mat FROM quant.Commodities c "
-    "INNER JOIN quant.Futures f ON c.ticker = f.commodity "
+    f"f.endDate as mat FROM {comm_meta} c "
+    f"INNER JOIN {fut_meta} f ON c.ticker = f.commodity "
     f"WHERE c.ticker IN ('{hedge}') AND f.endDate > '{_DEFAULT_SDATE}' "
     "ORDER BY mat"
 )
 
 hprice_sql = (
     "SELECT ticker, date, open, high, low, close "
-    "FROM quant.FuturesHistory f "
+    f"FROM {fut_hist} f "
     f"WHERE f.commodity = '{hedge}' AND "
     f"date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )

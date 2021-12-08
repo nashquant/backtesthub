@@ -6,13 +6,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 from dotenv import load_dotenv
 
-load_dotenv()
+file_dir = os.path.dirname(__file__)
+base_dir = os.path.dirname(file_dir)
 
-sys.path.append(
-    os.path.dirname(
-        os.path.dirname(__file__),
-    )
-)
+sys.path.append(base_dir)
+load_dotenv()
 
 from backtesthub.indicators.indicator import (
     Buy_n_Hold,
@@ -104,21 +102,26 @@ engine = create_engine(
     echo=False,
 )
 
+base_hist = os.getenv("BASE_HIST")
+stocks_hist = os.getenv("STK_HIST")
+
 base_sql = (
-    "SELECT date, ticker, open, high, low, close FROM quant.IndexesHistory "
+    "SELECT date, ticker, open, high, low, close "
+    f"FROM {base_hist} "
     f"WHERE ticker = '{base}' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
 carry_sql = (
-    "SELECT date, open, high, low, close FROM quant.IndexesHistory "
+    "SELECT date, open, high, low, close "
+    f"FROM {base_hist} "
     f"WHERE ticker = 'CARRY' AND date between "
     f"'{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
 
 price_sql = (
     "SELECT ticker, date, open, high, low, close, returns/100 as returns "
-    "FROM quant.StocksHistory s "
+    "FROM {stocks_hist} s "
     f"WHERE s.ticker = '{asset}' AND "
     f"date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
