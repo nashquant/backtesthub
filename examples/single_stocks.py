@@ -121,7 +121,7 @@ carry_sql = (
 
 price_sql = (
     "SELECT ticker, date, open, high, low, close, returns/100 as returns "
-    "FROM {stocks_hist} s "
+    f"FROM {stocks_hist} s "
     f"WHERE s.ticker = '{asset}' AND "
     f"date between '{_DEFAULT_SDATE}' AND '{_DEFAULT_EDATE}'"
 )
